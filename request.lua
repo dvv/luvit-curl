@@ -49,13 +49,13 @@ local function parse_request(req, callback)
   -- collect data
   local body = { }
   local length = 0
-  req:on('data', function(chunk, len)
+  req:on('data', function (chunk, len)
     length = length + 1
     body[length] = chunk
   end)
 
   -- parse data
-  req:on('end', function()
+  req:on('end', function ()
     -- merge data chunks
     parse_body(join(body), callback)
   end)
@@ -80,7 +80,7 @@ local function request(url, method, data, callback)
     params.path = url
   end
   -- FIXME: the whole resolve thingy should go deeper to TCP layer
-  resolve(params.host, function(err, ip)
+  resolve(params.host, function (err, ip)
     if err then
       -- FIXME: employ is_IP
       if not match(params.host, '%d+%.%d+.%d+.%d+') then
@@ -90,13 +90,13 @@ local function request(url, method, data, callback)
     --p('IP', err, ip)
     params.host = ip
     p(params)
-    http_request(params, function(err, req)
+    http_request(params, function (err, req)
       if err then return callback(err) end
       if data then
         req:write(data)
       end
       parse_request(req, callback)
-      req:on('end', function()
+      req:on('end', function ()
         req:close()
       end)
     end)
