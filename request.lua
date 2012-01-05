@@ -71,14 +71,18 @@ local function request(url, method, data, callback)
     path = parsed.pathname .. parsed.search,
     method = method,
   }
+  -- honor proxy, if any
   local proxy = process.env[parsed.protocol .. '_proxy']
   if proxy then
     parsed = parse_url(proxy)
     params.host = parsed.host
+    params.port = parsed.port
     params.path = url
   end
+  -- FIXME: the whole resolve thingy should go deeper to TCP layer
   resolve(params.host, function(err, ip)
     if err then
+      -- FIXME: employ is_IP
       if not match(params.host, '%d+%.%d+.%d+.%d+') then
         return callback(err)
       end
