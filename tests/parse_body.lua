@@ -1,7 +1,7 @@
 require('helper')
 
-local parse_body = require('../request').parse
-local get = require('../request').get
+local parse_body = require('../').parse
+local get = require('../').get
 
 -- Basic code coverage
 local tests = {

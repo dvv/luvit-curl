@@ -1,4 +1,4 @@
-local get = require('../request').get
+local get = require('../').get
 
 _G.equal = function(a, b)
   return a == b
