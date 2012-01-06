@@ -7,7 +7,7 @@ local http_request = require('http').request
 local parse_url = require('url').parse
 local json_decode = require('json').decode
 local join = require('table').concat
-local parse_query = require('./qs').parse
+local parse_query = require('querystring').parse
 local String = require('string')
 local sub = String.sub
 local match = String.match
@@ -66,7 +66,7 @@ local function request(url, method, data, callback)
   local parsed = parse_url(url)
   --p(parsed)
   local params = {
-    host = parsed.host,
+    host = parsed.hostname or parsed.host,
     port = parsed.port,
     path = parsed.pathname .. parsed.search,
     method = method,
@@ -75,9 +75,10 @@ local function request(url, method, data, callback)
   local proxy = process.env[parsed.protocol .. '_proxy']
   if proxy then
     parsed = parse_url(proxy)
-    params.host = parsed.host
+    params.host = parsed.hostname or parsed.host
     params.port = parsed.port
     params.path = url
+    --p('PROXIED', params, parsed)
   end
   -- FIXME: the whole resolve thingy should go deeper to TCP layer
   resolve(params.host, function (err, ip)
@@ -88,7 +89,7 @@ local function request(url, method, data, callback)
       end
     end
     --p('IP', err, ip)
-    params.host = ip
+    if ip then params.host = ip end
     p(params)
     http_request(params, function (err, req)
       if err then return callback(err) end
