@@ -1,3 +1,5 @@
+require('helper')
+
 local parse_body = require('../request').parse
 local get = require('../request').get
 
@@ -11,6 +13,7 @@ local tests = {
   ['{"foo": "bar}'] = '{"foo": "bar}',
   ['[1]'] = {1},
   ['[a]'] = '[a]',
+  ['<html><body></body></html>'] = '<html><body></body></html>',
 }
 
 for input, output in pairs(tests) do

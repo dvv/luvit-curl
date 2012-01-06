@@ -23,7 +23,10 @@ local function parse_body(body, callback)
     if status then
       body = result
     end
-  -- urlencoded or plain text?
+  -- html?
+  elseif char == '<' then
+    -- nothing needed
+  -- urlencoded or don't know
   else
     -- try to parse urlencoded
     local vars = parse_query(body)
@@ -93,6 +96,7 @@ local function request(url, method, data, callback)
     p(params)
     http_request(params, function (err, req)
       if err then return callback(err) end
+      p('REQ', req)
       if data then
         req:write(data)
       end
