@@ -119,9 +119,10 @@ local function request(options, callback)
     params.path = options.url
   end
 
+  --p('PARAMS', params)
   -- resolve target host name
   -- FIXME: the whole resolve thingy should go deeper to TCP layer
-  resolve(params.host, function (err, ips)
+  local status, err = pcall(resolve, params.host, function (err, ips)
 
     -- DNS errors are ignored if host name looks like a valid IP
     if err then
@@ -152,13 +153,23 @@ local function request(options, callback)
 
         local st = req.status_code
         -- handle redirect
-        if options.redirects and options.redirects > 0
-           and (st == 301 or st == 302)
-           and req.headers.location then
-          -- FIXME: spoils original options. make it feature? ;)
-          options.redirects = options.redirects - 1
-          options.url = req.headers.location
-          request(options, callback)
+        if st > 300 and st < 400 and req.headers.location then
+          -- can follow new location?
+          if options.redirects and options.redirects > 0 then
+            -- FIXME: spoils original options. make it feature? ;)
+            options.redirects = options.redirects - 1
+            options.url = req.headers.location
+            -- for short redirects (RFC2616 compliant?) prepend current host name
+            if not parse_url(options.url).host then
+              options.url = parsed.protocol .. '://' .. parsed.host .. options.url
+            end
+            -- request redirected location
+            request(options, callback)
+          -- can't follow
+          else
+            -- FIXME: what to do? so far let's think it's ok
+            callback(err, data)
+          end
         -- report HTTP errors
         elseif st >= 400 then
           err = Error.new(data)
@@ -180,6 +191,10 @@ local function request(options, callback)
     end)
 
   end)
+
+  if not status then
+    callback(err)
+  end
 
 end
 
