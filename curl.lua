@@ -86,7 +86,14 @@ end
 --
 -- issue an HTTP request and report parsed response
 --
+defaults = {
+  proxy = true,
+  redirects = 10,
+}
+
 local function request(options, callback)
+
+  setmetatable(options, { __index = defaults })
 
   -- parse URL
   local parsed = options
