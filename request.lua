@@ -12,7 +12,13 @@ local String = require('string')
 local sub = String.sub
 local match = String.match
 
-local function parse_body(body, callback)
+local function parse_body(body, content_type, callback)
+
+  -- allow optional content-type
+  if type(content_type) == 'function' then
+    callback = content_type
+    content_type = nil
+  end
 
   -- first char allows to distinguish JSON
   local char = sub(body, 1, 1)
@@ -26,15 +32,14 @@ local function parse_body(body, callback)
   -- html?
   elseif char == '<' then
     -- nothing needed
-  -- urlencoded or don't know
+  -- analyze content-type
   else
-    -- try to parse urlencoded
-    local vars = parse_query(body)
-    -- if resulting table is not empty
-    for _, _ in pairs(vars) do
-      -- use it
-      body = vars
-      break
+    if content_type then
+      content_type = match(content_type, '([^;]+)')
+    end
+    if content_type == 'application/www-urlencoded' or content_type == 'application/x-www-form-urlencoded' then
+      -- try to parse urlencoded
+      body = parse_query(body)
     end
   end
 
@@ -57,10 +62,9 @@ local function parse_request(req, callback)
     body[length] = chunk
   end)
 
-  -- parse data
+  -- parse data, try to honor Content-Type:
   req:on('end', function ()
-    -- merge data chunks
-    parse_body(join(body), callback)
+    parse_body(join(body), req.headers['content-type'], callback)
   end)
 
 end
@@ -96,7 +100,7 @@ local function request(url, method, data, callback)
     p(params)
     http_request(params, function (err, req)
       if err then return callback(err) end
-      p('REQ', req)
+      --p('REQ', req)
       if data then
         req:write(data)
       end
