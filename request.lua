@@ -3,7 +3,9 @@
 --
 
 local Error = require('error')
-local resolve = require('dns').resolve4
+local DNS = require('dns')
+local resolve = DNS.resolve4
+local isIP = DNS.isIP
 local http_request = require('http').request
 local parse_url = require('url').parse
 local json_decode = require('json').decode
@@ -125,11 +127,9 @@ local function request(options, callback)
   local status, err = pcall(resolve, params.host, function (err, ips)
 
     -- DNS errors are ignored if host name looks like a valid IP
-    if err then
-      -- FIXME: employ is_IP
-      if not match(params.host, '%d+%.%d+.%d+.%d+') then
-        return callback(err)
-      end
+    if err and not isIP(params.host) then
+      callback(err)
+      return
     end
     --p('IP', err, ips)
     -- FIXME: should try every IP, in case of error
