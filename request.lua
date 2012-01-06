@@ -2,6 +2,7 @@
 -- HTTP request helpers
 --
 
+local Error = require('error')
 local resolve = require('dns').resolve4
 local http_request = require('http').request
 local parse_url = require('url').parse
@@ -12,6 +13,11 @@ local String = require('string')
 local sub = String.sub
 local match = String.match
 
+--
+-- given string `body` and optional `content_type`,
+-- try to compose table representing th body.
+-- JSON should be decoded, urlencoded data should be parsed
+--
 local function parse_body(body, content_type, callback)
 
   -- allow optional content-type
@@ -37,7 +43,9 @@ local function parse_body(body, content_type, callback)
     if content_type then
       content_type = match(content_type, '([^;]+)')
     end
-    if content_type == 'application/www-urlencoded' or content_type == 'application/x-www-form-urlencoded' then
+    if     content_type == 'application/www-urlencoded'
+        or content_type == 'application/x-www-form-urlencoded'
+    then
       -- try to parse urlencoded
       body = parse_query(body)
     end
@@ -52,6 +60,10 @@ local function parse_body(body, content_type, callback)
 
 end
 
+--
+-- given a stream `req`, try to drain pending data and parse it.
+-- useful for both outgoing and incoming requests
+--
 local function parse_request(req, callback)
 
   -- collect data
@@ -69,55 +81,117 @@ local function parse_request(req, callback)
 
 end
 
-local function request(url, method, data, callback)
-  local parsed = parse_url(url)
-  --p('INIT', parsed)
+--
+-- issue an HTTP request and report parsed response
+--
+local function request(options, callback)
+
+  -- parse URL
+  local parsed = options
+  if options.url then
+    parsed = parse_url(options.url)
+    setmetatable(parsed, { __index = options })
+  end
+
+  -- collect HTTP request options
   local params = {
     host = parsed.hostname or parsed.host,
     port = parsed.port,
     path = parsed.pathname .. parsed.search,
-    method = method,
+    method = options.method,
+    headers = options.headers,
   }
+
   -- honor proxy, if any
-  local proxy = process.env[parsed.protocol .. '_proxy']
+  local proxy = options.proxy
+  -- proxy can be string which is used verbatim,
+  -- or boolean true to use system proxy
+  if proxy == true then
+    proxy = process.env[parsed.protocol .. '_proxy']
+  end
+  -- proxying means...
   if proxy then
+    -- ...request the proxy host
     parsed = parse_url(proxy)
     params.host = parsed.hostname or parsed.host
     params.port = parsed.port
-    params.path = url
-    --p('PROXIED', params, parsed)
+    -- ...with path equal to original URL
+    params.path = options.url
   end
+
+  -- resolve target host name
   -- FIXME: the whole resolve thingy should go deeper to TCP layer
-  resolve(params.host, function (err, ip)
+  resolve(params.host, function (err, ips)
+
+    -- DNS errors are ignored if host name looks like a valid IP
     if err then
       -- FIXME: employ is_IP
       if not match(params.host, '%d+%.%d+.%d+.%d+') then
         return callback(err)
       end
     end
-    --p('IP', err, ip)
-    if ip then params.host = ip[1] end
+    --p('IP', err, ips)
+    -- FIXME: should try every IP, in case of error
+    if ips then params.host = ips[1] end
+
     --p('PARAMS', params)
+    -- issue the request
     http_request(params, function (err, req)
+
+      -- request errored -- bail out
       if err then return callback(err) end
       --p('REQ', req)
-      if data then
-        req:write(data)
+
+      -- request is done ok. send data, if any valid provided
+      if options.data and type(options.data) == 'string' then
+        req:write(options.data)
       end
-      parse_request(req, callback)
+
+      -- get parsed response
+      parse_request(req, function (err, data)
+
+        local st = req.status_code
+        -- handle redirect
+        if options.redirects and options.redirects > 0
+           and (st == 301 or st == 302)
+           and req.headers.location then
+          -- FIXME: spoils original options. make it feature? ;)
+          options.redirects = options.redirects - 1
+          options.url = req.headers.location
+          request(options, callback)
+        -- report HTTP errors
+        elseif st >= 400 then
+          err = Error.new(data)
+          -- FIXME: should reuse status_code_message from Response?
+          err.code = st
+          callback(err)
+        -- we are done ok
+        else
+          callback(err, data)
+        end
+
+      end)
+
+      -- close issued request
       req:on('end', function ()
         req:close()
       end)
+
     end)
+
   end)
+
 end
 
-local function get(url, callback)
-  request(url, 'GET', nil, callback)
+local function get(options, callback)
+  options.method = 'GET'
+  request(options, callback)
 end
 
-local function post(url, data, callback)
-  request(url, 'POST', data, callback)
+local function post(options, data, callback)
+  options.method = 'POST'
+  options.data = data
+  request(options, callback)
 end
 
 -- module
