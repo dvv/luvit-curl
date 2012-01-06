@@ -71,7 +71,7 @@ end
 
 local function request(url, method, data, callback)
   local parsed = parse_url(url)
-  --p(parsed)
+  --p('INIT', parsed)
   local params = {
     host = parsed.hostname or parsed.host,
     port = parsed.port,
@@ -96,8 +96,8 @@ local function request(url, method, data, callback)
       end
     end
     --p('IP', err, ip)
-    if ip then params.host = ip end
-    p(params)
+    if ip then params.host = ip[1] end
+    --p('PARAMS', params)
     http_request(params, function (err, req)
       if err then return callback(err) end
       --p('REQ', req)
