@@ -8,7 +8,7 @@ local resolve = DNS.resolve4
 local isIP = DNS.isIP
 local http_request = require('http').request
 local parse_url = require('url').parse
-local json_decode = require('json').decode
+local parse_json = require('json').parse
 local join = require('table').concat
 local parse_query = require('querystring').parse
 local String = require('string')
@@ -33,7 +33,14 @@ local function parse_body(body, content_type, callback)
   -- JSON?
   if char == '[' or char == '{' then
     -- try to decode JSON
-    local status, result = pcall(json_decode, body)
+    local status, result = pcall(parse_json, body, {
+      use_null = true,
+      --allow_comments = true,
+      --dont_validate_strings = true,
+      --allow_trailing_garbage = true,
+      --allow_multiple_values = true,
+      --allow_partial_values = true,
+    })
     if status then
       body = result
     end
