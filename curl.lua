@@ -96,6 +96,7 @@ end
 defaults = {
   proxy = true,
   redirects = 10,
+  parse = true, -- whether to parse the response
 }
 
 local function request(options, callback)
@@ -138,6 +139,7 @@ local function request(options, callback)
   --p('PARAMS', params)
   -- resolve target host name
   -- FIXME: the whole resolve thingy should go deeper to TCP layer
+--[[
   local status, err = pcall(resolve, params.host, function (err, ips)
 
     -- DNS errors are ignored if host name looks like a valid IP
@@ -147,68 +149,73 @@ local function request(options, callback)
     end
     --p('IP', err, ips)
     -- FIXME: should try every IP, in case of error
-    if ips then params.host = ips[1] end
+    if ips then params.host = ips[1] end]]--
 
     --p('PARAMS', params)
+    --TODO: set Content-Length: if options.data
     -- issue the request
-    http_request(params, function (err, req)
-
-      -- request errored -- bail out
-      if err then return callback(err) end
-      --p('REQ', req)
+    local client = http_request(params, function (req)
 
       -- request is done ok. send data, if any valid provided
       if options.data and type(options.data) == 'string' then
         req:write(options.data)
       end
 
-      -- get parsed response
-      parse_request(req, function (err, data)
-
-        local st = req.status_code
-        -- handle redirect
-        if st > 300 and st < 400 and req.headers.location then
-          -- can follow new location?
-          if options.redirects and options.redirects > 0 then
-            -- FIXME: spoils original options. make it feature? ;)
-            options.redirects = options.redirects - 1
-            options.url = req.headers.location
-            -- for short redirects (RFC2616 compliant?) prepend current host name
-            if not parse_url(options.url).host then
-              options.url = parsed.protocol .. '://' .. parsed.host .. options.url
-            end
-            -- request redirected location
-            request(options, callback)
-          -- can't follow
-          else
-            -- FIXME: what to do? so far let's think it's ok
-            callback(err, data)
+      local st = req.status_code
+      -- handle redirect
+      if st > 300 and st < 400 and req.headers.location then
+        -- can follow new location?
+        if options.redirects and options.redirects > 0 then
+          -- FIXME: spoils original options. make it feature? ;)
+          options.redirects = options.redirects - 1
+          options.url = req.headers.location
+          -- for short redirects (RFC2616 compliant?) prepend current host name
+          if not parse_url(options.url).host then
+            options.url = parsed.protocol .. '://' .. parsed.host .. options.url
           end
-        -- report HTTP errors
-        elseif st >= 400 then
-          err = Error.new(data)
-          -- FIXME: should reuse status_code_message from Response?
-          err.code = st
-          callback(err)
-        -- we are done ok
+          -- request redirected location
+--p('ST', options)
+          request(options, callback)
+        -- can't follow
         else
-          callback(err, data)
+          -- FIXME: what to do? so far let's think it's ok, but no data
+          callback(nil)
         end
+        return
+      -- report HTTP errors
+      elseif st >= 400 then
+        err = Error.new(data)
+        -- FIXME: should reuse status_code_message from Response?
+        err.code = st
+        callback(err)
+        return
+      end
 
-      end)
+      -- request was ok
 
-      -- close issued request
-      req:on('end', function ()
-        req:close()
-      end)
+      -- to parse or not to parse the response
+      if options.parse then
+        -- parse the response
+        parse_request(req, callback)
+      else
+        -- just return the connected request
+        callback(nil, req)
+      end
 
     end)
 
-  end)
+    -- purge issued request
+    client:on('end', function ()
+      client:close()
+    end)
+    -- pipe errors to callback
+    client:on('error', callback)
+
+  --[[end)
 
   if not status then
     callback(err)
-  end
+  end]]--
 
 end
 

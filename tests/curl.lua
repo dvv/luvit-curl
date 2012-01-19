@@ -74,17 +74,19 @@ end
 get({
   url = 'http://127.0.0.1:44443'
 }, function (err, data)
-  p(err, data)
+  --p(err, data)
   assert(data == nil)
   assert(err == "tcp_connect: invalid argument")
 end)
 ]]--
 
+--p('Starting tests')
+
 -- JSON response should parse ok
 get({
   url = 'http://127.0.0.1:44444/json',
 }, function (err, data)
-  --p('JSON', err, data)
+  p('JSON', err, data)
   assert(err == nil)
   assert(deep_equal(data.foo, {1, 2, 3}))
   assert(data.bar == 'bar')
@@ -137,7 +139,7 @@ get({
   url = 'http://127.0.0.1:44444/redirect',
   redirects = 3,
 }, function (err, data)
-  --p('REDIRECT3', err, data)
+  p('REDIRECT3', err, data)
   assert(err == nil)
   assert(data == 'REDIRECTED to 3rd hop')
   done('REDIRECTED timeout 3rd hop')
