@@ -22,10 +22,15 @@ local match = String.match
 --
 local function parse_body(body, content_type, callback)
 
+  local err
+
   -- allow optional content-type
   if type(content_type) == 'function' then
     callback = content_type
     content_type = nil
+  end
+  if content_type then
+    content_type = match(content_type, '([^;]+)')
   end
 
   -- first char allows to distinguish JSON
@@ -43,15 +48,30 @@ local function parse_body(body, content_type, callback)
     })
     if status then
       body = result
+    else
+      err = result
+    end
+  -- JSONP?
+  elseif content_type == 'application/javascript' then
+    -- extract JSON payload
+    local func, json = body:match('^([%w_]+)(%b())')
+    -- try to decode JSON
+    if func and json then
+      local status, result = pcall(parse_json, json:sub(2, -2), {
+        use_null = true,
+      })
+      if status then
+        body = result
+        -- TODO: how to report `func`?
+      else
+        err = result
+      end
     end
   -- html?
   elseif char == '<' then
     -- nothing needed
   -- analyze content-type
   else
-    if content_type then
-      content_type = match(content_type, '([^;]+)')
-    end
     if     content_type == 'application/www-urlencoded'
         or content_type == 'application/x-www-form-urlencoded'
     then
@@ -62,7 +82,7 @@ local function parse_body(body, content_type, callback)
 
   --
   if callback then
-    callback(nil, body)
+    callback(err, body)
   else
     return body
   end
@@ -85,6 +105,7 @@ local function parse_request(req, callback)
 
   -- parse data, try to honor Content-Type:
   req:on('end', function ()
+--p('PARSE', req)
     parse_body(join(body), req.headers['content-type'], callback)
   end)
 

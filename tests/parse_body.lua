@@ -14,6 +14,7 @@ local tests = {
   ['[1]'] = {1},
   ['[a]'] = '[a]',
   ['<html><body></body></html>'] = '<html><body></body></html>',
+  [{'foo([1,2,3]);','application/javascript'}] = {1,2,3},
 }
 
 for input, output in pairs(tests) do
