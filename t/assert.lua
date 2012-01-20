@@ -65,9 +65,12 @@ A.is_hash = function(a)
 end
 
 A.throws = function(...)
-  local s, e = pcall(...)
-  p('NOT?', s, e)
-  return A.equal(s, false) and A.ok(e)
+  local status, err = pcall(...)
+  return equal(status, false) and A.ok(err), err
+end
+
+A._not = function(a)
+  return not a
 end
 
 --
@@ -76,6 +79,7 @@ end
 
 assert(A.ok(1))
 assert(A.is_nil(nil))
-assert(A.throws(A.is_nil, 1))
+assert(A.throws(foo))
+assert(not A.ok(A.is_nil(1)))
 
 return A
