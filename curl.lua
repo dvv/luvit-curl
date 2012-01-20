@@ -139,7 +139,6 @@ local function request(options, callback)
   --p('PARAMS', params)
   -- resolve target host name
   -- FIXME: the whole resolve thingy should go deeper to TCP layer
---[[
   local status, err = pcall(resolve, params.host, function (err, ips)
 
     -- DNS errors are ignored if host name looks like a valid IP
@@ -149,7 +148,7 @@ local function request(options, callback)
     end
     --p('IP', err, ips)
     -- FIXME: should try every IP, in case of error
-    if ips then params.host = ips[1] end]]--
+    if ips then params.host = ips[1] end
 
     --p('PARAMS', params)
     --TODO: set Content-Length: if options.data
@@ -211,11 +210,11 @@ local function request(options, callback)
     -- pipe errors to callback
     client:on('error', callback)
 
-  --[[end)
+  end)
 
   if not status then
     callback(err)
-  end]]--
+  end
 
 end
 
