@@ -1,4 +1,3 @@
-local JSON = require('json')
 local get = require('../').get
 
 --[[process:on('error', function (err)
