@@ -1,7 +1,5 @@
-require('./helper')
 
 local parse_body = require('../').parse
-local get = require('../').get
 
 -- Basic code coverage
 local tests = {
@@ -17,6 +15,8 @@ local tests = {
   [{'foo([1,2,3]);','application/javascript'}] = {1,2,3},
 }
 
+exports = {}
+
 for input, output in pairs(tests) do
   local str, ctype
   if type(input) == 'table' then
@@ -25,10 +25,13 @@ for input, output in pairs(tests) do
   else
     str = input
   end
-  local tokens = parse_body(str, ctype)
-  if not deep_equal(output, tokens) then
-    p("Expected", output)
-    p("But got", tokens)
-    error("Test failed " .. str)
+  local n = 1
+  exports['test_' .. n] = function(test, asserts)
+    local tokens = parse_body(str, ctype)
+    asserts.dequals(output, tokens)
+    test.done()
   end
+  n = n + 1
 end
+
+return exports

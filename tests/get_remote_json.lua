@@ -1,15 +1,17 @@
 local get = require('../').get
 
---[[process:on('error', function (err)
-  debug('CAUGHT', err)
-end)]]--
+exports = { }
 
--- JSON response should parse ok
-get({
-  url = 'http://twitter.com/status/user_timeline/creationix.json?count=1&callback=foo',
-}, function (err, data)
-  p(err, data)
-  --assert(err == nil)
-  --local json = JSON.parse(data:sub(5, -3))
-  --p('JSON', json)
-end)
+exports['test JSON response should parse ok'] = function (test, asserts)
+  get({
+    url = 'http://twitter.com/status/user_timeline/creationix.json?count=2&callback=foo',
+  }, function (err, data)
+    --p(err, data)
+    asserts.is_nil(err)
+    asserts.ok(type(data) == 'table')
+    asserts.equals(#data, 2)
+    test.done()
+  end)
+end
+
+return exports
