@@ -1,6 +1,6 @@
 all: test
 
 test:
-	luvit -e 'require("lua-bourbon").run()'
+	checkit tests/*
 
 .PHONY: all test

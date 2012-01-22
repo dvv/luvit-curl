@@ -15,8 +15,9 @@ local tests = {
   [{'foo([1,2,3]);','application/javascript'}] = {1,2,3},
 }
 
-exports = {}
+exports = { }
 
+local n = 1
 for input, output in pairs(tests) do
   local str, ctype
   if type(input) == 'table' then
@@ -25,10 +26,9 @@ for input, output in pairs(tests) do
   else
     str = input
   end
-  local n = 1
-  exports['test_' .. n] = function(test, asserts)
+  exports['test ' .. str] = function (test)
     local tokens = parse_body(str, ctype)
-    asserts.dequals(output, tokens)
+    test.equal(output, tokens)
     test.done()
   end
   n = n + 1

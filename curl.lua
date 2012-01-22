@@ -196,12 +196,12 @@ local function request(options, callback)
           -- request redirected location
 --p('ST', options)
           request(options, callback)
+          return
         -- can't follow
         else
-          -- FIXME: what to do? so far let's think it's ok, but no data
-          callback(nil)
+          -- FIXME: what to do? so far let's think it's ok, proceed to data parsing
+          --callback(nil)
         end
-        return
       -- report HTTP errors
       elseif st >= 400 then
         err = Error.new(data)
