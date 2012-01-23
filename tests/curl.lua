@@ -47,7 +47,8 @@ end)
 -- FIXME: should have timeout
 exports['test connect should fail gracefully'] = function (test)
 get({
-  url = 'http://127.0.0.1:44443'
+  url = 'http://127.0.0.1:44443',
+  proxy = false,
 }, function (err, data)
   --p(err, data)
   test.is_nil(data)
