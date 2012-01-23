@@ -18,7 +18,7 @@ local match = String.match
 --
 -- given string `body` and optional `content_type`,
 -- try to compose table representing th body.
--- JSON should be decoded, urlencoded data should be parsed
+-- JSON/JSONP should be decoded, urlencoded data should be parsed
 --
 local function parse_body(body, content_type, callback)
 
@@ -225,11 +225,11 @@ local function request(options, callback)
     end)
 
     -- purge issued request
-    client:on('end', function ()
+    client:once('end', function ()
       client:close()
     end)
     -- pipe errors to callback
-    client:on('error', callback)
+    client:once('error', callback)
 
   end)
 
