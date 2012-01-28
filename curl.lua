@@ -204,7 +204,7 @@ local function request(options, callback)
         end
       -- report HTTP errors
       elseif st >= 400 then
-        err = Error.new(data)
+        err = Error:new(data)
         -- FIXME: should reuse status_code_message from Response?
         err.code = st
         callback(err)
