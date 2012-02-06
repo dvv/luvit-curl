@@ -7,7 +7,7 @@ Usage
 -----
 
 ```lua
-local Curl = require('curl')
+local get = require('curl').get
 
 -- get twitter timeline
 get({

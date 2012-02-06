@@ -2,10 +2,11 @@
 -- HTTP request helpers
 --
 
-local Error = require('error')
+local Object = require('core').Object
+local Error = require('core').Error
 local DNS = require('dns')
 local resolve = DNS.resolve4
-local isIP = DNS.isIP
+local isIP = DNS.isIp
 local http_request = require('http').request
 local parse_url = require('url').parse
 local parse_json = require('json').parse
@@ -24,6 +25,7 @@ local function parse_body(body, content_type, callback)
 
   local err
 
+  --p('CTYPE', content_type)
   -- allow optional content-type
   if type(content_type) == 'function' then
     callback = content_type
@@ -120,15 +122,19 @@ defaults = {
   parse = true, -- whether to parse the response
 }
 
-local function request(options, callback)
+local Curl = Object:extend()
 
-  setmetatable(options, { __index = defaults })
+function Curl:initialize(options)
+  self.options = setmetatable(options, { __index = defaults })
+end
+
+function Curl:request(callback)
 
   -- parse URL
-  local parsed = options
-  if options.url then
-    parsed = parse_url(options.url)
-    setmetatable(parsed, { __index = options })
+  local parsed = self.options
+  if self.options.url then
+    parsed = parse_url(self.options.url)
+    setmetatable(parsed, { __index = self.options })
   end
 
   -- collect HTTP request options
@@ -136,12 +142,12 @@ local function request(options, callback)
     host = parsed.hostname or parsed.host,
     port = parsed.port,
     path = parsed.pathname .. parsed.search,
-    method = options.method,
-    headers = options.headers,
+    method = self.options.method,
+    headers = self.options.headers,
   }
 
   -- honor proxy, if any
-  local proxy = options.proxy
+  local proxy = self.options.proxy
   -- proxy can be string which is used verbatim,
   -- or boolean true to use system proxy
   if proxy == true then
@@ -154,7 +160,7 @@ local function request(options, callback)
     params.host = parsed.hostname or parsed.host
     params.port = parsed.port
     -- ...with path equal to original URL
-    params.path = options.url
+    params.path = self.options.url
   end
 
   --p('PARAMS', params)
@@ -177,25 +183,26 @@ local function request(options, callback)
     local client = http_request(params, function (req)
 
       -- request is done ok. send data, if any valid provided
-      if options.data and type(options.data) == 'string' then
-        req:write(options.data)
+      -- TODO: should be data, not self.options.data
+      if self.options.data and type(self.options.data) == 'string' then
+        req:write(self.options.data)
       end
 
       local st = req.status_code
       -- handle redirect
       if st > 300 and st < 400 and req.headers.location then
         -- can follow new location?
-        if options.redirects and options.redirects > 0 then
+        if self.options.redirects and self.options.redirects > 0 then
           -- FIXME: spoils original options. make it feature? ;)
-          options.redirects = options.redirects - 1
-          options.url = req.headers.location
+          self.options.redirects = self.options.redirects - 1
+          self.options.url = req.headers.location
           -- for short redirects (RFC2616 compliant?) prepend current host name
-          if not parse_url(options.url).host then
-            options.url = parsed.protocol .. '://' .. parsed.host .. options.url
+          if not parse_url(self.options.url).host then
+            self.options.url = parsed.protocol .. '://' .. parsed.host .. self.options.url
           end
           -- request redirected location
 --p('ST', options)
-          request(options, callback)
+          self:request(callback)
           return
         -- can't follow
         else
@@ -214,7 +221,7 @@ local function request(options, callback)
       -- request was ok
 
       -- to parse or not to parse the response
-      if options.parse then
+      if self.options.parse then
         -- parse the response
         parse_request(req, callback)
       else
@@ -240,19 +247,21 @@ local function request(options, callback)
 end
 
 local function get(options, callback)
-  options.method = 'GET'
-  request(options, callback)
+  local curl = Curl:new(options)
+  curl.options.method = 'GET'
+  curl:request(callback)
 end
 
-local function post(options, data, callback)
-  options.method = 'POST'
-  options.data = data
-  request(options, callback)
+local function post(data, callback)
+  local curl = Curl:new(options)
+  curl.options.method = 'POST'
+  curl.options.data = data
+  curl:request(callback)
 end
 
 -- module
 return {
-  request = request,
+  Curl = Curl,
   get = get,
   post = post,
   parse = parse_body,

@@ -3,43 +3,43 @@ local exports = { }
 local get = require('../').get
 
 -- create a helper server
-require('http').create_server('127.0.0.1', 44444, function (req, res)
+require('http').createServer('127.0.0.1', 44444, function (req, res)
   if req.url == '/ok' then
     res:finish('OK')
   elseif req.url == '/json' then
     res:finish('{"foo": [1, 2, 3], "bar": "bar"}')
   elseif req.url == '/urlencoded' then
-    res:write_head(200, {['Content-Type'] = 'application/www-urlencoded; charset=UTF-8'})
+    res:writeHead(200, {['Content-Type'] = 'application/www-urlencoded; charset=UTF-8'})
     res:finish('foo=bar&bar=baz&f&escaped=%255%3D')
   elseif req.url == '/fake-urlencoded' then
     res:finish('foo=bar&bar=baz&f&escaped=%255%3D')
   elseif req.url == '/html' then
     res:finish('<html></html>')
   elseif req.url == '/redirect' then
-    res:write_head(301, {Location = '/redirect1'})
+    res:writeHead(301, {Location = '/redirect1'})
     res:finish()
   elseif req.url == '/redirect1' then
-    res:write_head(302, {Location = '/redirect2'})
+    res:writeHead(302, {Location = '/redirect2'})
     res:finish()
   elseif req.url == '/redirect2' then
-    res:write_head(303, {Location = '/redirect3'})
+    res:writeHead(303, {Location = '/redirect3'})
     res:finish()
   elseif req.url == '/redirect3' then
-    res:write_head(307, {Location = '/redirect4'})
+    res:writeHead(307, {Location = '/redirect4'})
     res:finish('REDIRECTED to 3rd hop')
   elseif req.url == '/redirect4' then
     res:finish('REDIRECTED OK')
   elseif req.url == '/404' then
-    res:write_head(404, {})
+    res:writeHead(404, {})
     res:finish('Not Found')
   elseif req.url == '/403' then
-    res:write_head(403, {})
+    res:writeHead(403, {})
     res:finish('Prohibited')
   elseif req.url == '/500' then
-    res:write_head(500, {})
+    res:writeHead(500, {})
     res:finish('Server Error')
   else
-    res:write_head(404, {})
+    res:writeHead(404, {})
     res:finish('Not Found')
   end
 end)
