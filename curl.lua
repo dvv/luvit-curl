@@ -236,7 +236,10 @@ function Curl:request(callback)
       client:close()
     end)
     -- pipe errors to callback
-    client:once('error', callback)
+    client:once('error', function (err)
+      client:close()
+      callback(err)
+    end)
 
   end)
 
