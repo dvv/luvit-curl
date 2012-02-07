@@ -56,10 +56,10 @@ local function parse_body(body, content_type, callback)
   -- JSONP?
   elseif content_type == 'application/javascript' then
     -- extract JSON payload
-    local func, json = body:match('^([%w_]+)(%b())')
+    local func, json = body:match('^([%w_][%a_]*)%((.+)%);?$')
     -- try to decode JSON
     if func and json then
-      local status, result = pcall(parse_json, json:sub(2, -2), {
+      local status, result = pcall(parse_json, json, {
         use_null = true,
       })
       if status then
