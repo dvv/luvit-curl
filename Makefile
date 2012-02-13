@@ -1,8 +1,7 @@
 all: test
 
 test:
-	#checkit tests/*
-	checkit tests/curl.lua
+	checkit tests/*
 
 .PHONY: all test
 .SILENT:

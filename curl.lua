@@ -2,17 +2,14 @@
 -- HTTP request helpers
 --
 
+local Table = require('table')
+local String = require('string')
 local Object = require('core').Object
 local Error = require('core').Error
-local DNS = require('dns')
-local resolve = DNS.resolve4
-local isIP = DNS.isIp
 local http_request = require('http').request
 local parse_url = require('url').parse
 local parse_json = require('json').parse
-local join = require('table').concat
 local parse_query = require('querystring').parse
-local String = require('string')
 local sub = String.sub
 local match = String.match
 
@@ -108,7 +105,7 @@ local function parse_request(req, callback)
   -- parse data, try to honor Content-Type:
   req:on('end', function ()
 --p('PARSE', req)
-    parse_body(join(body), req.headers['content-type'], callback)
+    parse_body(Table.concat(body), req.headers['content-type'], callback)
   end)
 
 end
@@ -116,16 +113,17 @@ end
 --
 -- issue an HTTP request and report parsed response
 --
-defaults = {
-  proxy = true,
-  redirects = 10,
-  parse = true, -- whether to parse the response
-}
-
 local Curl = Object:extend()
 
+-- default options
+Curl.defaults = {
+  proxy = true,
+  redirects = 10,
+  parse = true, -- whether to parse the response body
+}
+
 function Curl:initialize(options)
-  self.options = setmetatable(options, { __index = defaults })
+  self.options = setmetatable(options, { __index = Curl.defaults })
 end
 
 function Curl:request(callback)
@@ -164,88 +162,72 @@ function Curl:request(callback)
   end
 
   --p('PARAMS', params)
-  -- resolve target host name
-  -- FIXME: the whole resolve thingy should go deeper to TCP layer
-  local status, err = pcall(resolve, params.host, function (err, ips)
+  --TODO: set Content-Length: if options.data
 
-    -- DNS errors are ignored if host name looks like a valid IP
-    if err and not isIP(params.host) then
+  -- issue the request
+  local client
+  client = http_request(params, function (req)
+
+    -- request is done ok. send data, if any valid provided
+    -- TODO: should be data, not self.options.data
+    if self.options.data and type(self.options.data) == 'string' then
+      req:write(self.options.data)
+    end
+
+    local st = req.status_code
+    -- handle redirect
+    if st > 300 and st < 400 and req.headers.location then
+      -- can follow new location?
+      if self.options.redirects and self.options.redirects > 0 then
+        -- FIXME: spoils original options. make it feature? ;)
+        self.options.redirects = self.options.redirects - 1
+        self.options.url = req.headers.location
+        -- for short redirects (RFC2616 compliant?) prepend current host name
+        if not parse_url(self.options.url).host then
+          self.options.url = parsed.protocol .. '://' .. parsed.host .. self.options.url
+        end
+        -- request redirected location
+--p('ST', options)
+        self:request(callback)
+        return
+      -- can't follow
+      else
+        -- FIXME: what to do? so far let's think it's ok, proceed to data parsing
+        --callback(nil)
+      end
+    -- report HTTP errors
+    elseif st >= 400 then
+      err = Error:new(data)
+      -- FIXME: should reuse status_code_message from Response?
+      err.code = st
       callback(err)
       return
     end
-    --p('IP', err, ips)
-    -- FIXME: should try every IP, in case of error
-    if ips then params.host = ips[1] end
 
-    --p('PARAMS', params)
-    --TODO: set Content-Length: if options.data
-    -- issue the request
-    local client = http_request(params, function (req)
+    -- request was ok
 
-      -- request is done ok. send data, if any valid provided
-      -- TODO: should be data, not self.options.data
-      if self.options.data and type(self.options.data) == 'string' then
-        req:write(self.options.data)
-      end
-
-      local st = req.status_code
-      -- handle redirect
-      if st > 300 and st < 400 and req.headers.location then
-        -- can follow new location?
-        if self.options.redirects and self.options.redirects > 0 then
-          -- FIXME: spoils original options. make it feature? ;)
-          self.options.redirects = self.options.redirects - 1
-          self.options.url = req.headers.location
-          -- for short redirects (RFC2616 compliant?) prepend current host name
-          if not parse_url(self.options.url).host then
-            self.options.url = parsed.protocol .. '://' .. parsed.host .. self.options.url
-          end
-          -- request redirected location
---p('ST', options)
-          self:request(callback)
-          return
-        -- can't follow
-        else
-          -- FIXME: what to do? so far let's think it's ok, proceed to data parsing
-          --callback(nil)
-        end
-      -- report HTTP errors
-      elseif st >= 400 then
-        err = Error:new(data)
-        -- FIXME: should reuse status_code_message from Response?
-        err.code = st
-        callback(err)
-        return
-      end
-
-      -- request was ok
-
-      -- to parse or not to parse the response
-      if self.options.parse then
-        -- parse the response
-        parse_request(req, callback)
-      else
-        -- just return the connected request
-        callback(nil, req)
-      end
-
-    end)
-
-    -- purge issued request
-    client:once('end', function ()
-      client:close()
-    end)
-    -- pipe errors to callback
-    client:once('error', function (err)
-      client:close()
-      callback(err)
-    end)
+    -- to parse or not to parse the response
+    if self.options.parse then
+      -- parse the response
+      parse_request(req, callback)
+    else
+      -- just return the connected request
+      callback(nil, req)
+    end
 
   end)
 
-  if not status then
+  -- purge issued request
+  client:once('end', function ()
+    client:close()
+  end)
+
+  -- pipe errors to callback
+  client:once('error', function (err)
+    client:close()
     callback(err)
-  end
+    callback = function () end
+  end)
 
 end
 

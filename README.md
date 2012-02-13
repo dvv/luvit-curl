@@ -14,11 +14,11 @@ get({
   url = 'http://twitter.com/status/user_timeline/creationix.json?count=2&callback=foo',
 }, function (err, data)
   p(err, data)
-  -- should see pretty-printed table of two records here
+  -- should see pretty-printed table of one or two records here
 end)
 ```
 
 License
 -----
 
-[MIT](curl/license.txt)
+[MIT](luvit-curl/license.txt)

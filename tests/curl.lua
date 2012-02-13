@@ -182,8 +182,9 @@ get({
   proxy = false,
   data = 'foo',
 }, function (err, data)
-  p('echo', err, data)
+  --p('echo', err, data)
   test.is_nil(err)
+  test.equal(data, 'foo')
   test.done()
 end)
 end
