@@ -123,7 +123,7 @@ Curl.defaults = {
 }
 
 function Curl:initialize(options)
-  self.options = setmetatable(options, { __index = Curl.defaults })
+  self.options = setmetatable(options or {}, { __index = Curl.defaults })
 end
 
 function Curl:request(callback)
@@ -165,23 +165,17 @@ function Curl:request(callback)
   --TODO: set Content-Length: if options.data
 
   -- issue the request
-  local client
-  client = http_request(params, function (req)
+  local req
+  req = http_request(params, function (res)
 
-    -- request is done ok. send data, if any valid provided
-    -- TODO: should be data, not self.options.data
-    if self.options.data and type(self.options.data) == 'string' then
-      req:write(self.options.data)
-    end
-
-    local st = req.status_code
+    local st = res.status_code
     -- handle redirect
-    if st > 300 and st < 400 and req.headers.location then
+    if st > 300 and st < 400 and res.headers.location then
       -- can follow new location?
       if self.options.redirects and self.options.redirects > 0 then
         -- FIXME: spoils original options. make it feature? ;)
         self.options.redirects = self.options.redirects - 1
-        self.options.url = req.headers.location
+        self.options.url = res.headers.location
         -- for short redirects (RFC2616 compliant?) prepend current host name
         if not parse_url(self.options.url).host then
           self.options.url = parsed.protocol .. '://' .. parsed.host .. self.options.url
@@ -209,39 +203,49 @@ function Curl:request(callback)
     -- to parse or not to parse the response
     if self.options.parse then
       -- parse the response
-      parse_request(req, callback)
+      parse_request(res, callback)
     else
       -- just return the connected request
-      callback(nil, req)
+      callback(nil, res)
     end
 
   end)
 
   -- purge issued request
-  client:once('end', function ()
-    client:close()
+  req:once('end', function ()
+    req:close()
   end)
 
   -- pipe errors to callback
-  client:once('error', function (err)
-    client:close()
+  req:once('error', function (err)
+    req:close()
     callback(err)
     callback = function () end
   end)
 
+  return req
+
+end
+
+function Curl:finish(data)
 end
 
 local function get(options, callback)
   local curl = Curl:new(options)
   curl.options.method = 'GET'
-  curl:request(callback)
+  local req = curl:request(callback)
+  --req:close()
+  --??req._handle:shutdown()
 end
 
-local function post(data, callback)
+local function post(options, data, callback)
   local curl = Curl:new(options)
   curl.options.method = 'POST'
-  curl.options.data = data
-  curl:request(callback)
+  local req = curl:request(callback)
+  if type(data) == 'string' then
+    req:write(data)
+  end
+  --req:close()
 end
 
 -- module

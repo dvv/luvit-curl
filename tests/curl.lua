@@ -1,6 +1,7 @@
 local exports = { }
 
 local get = require('../').get
+local post = require('../').post
 local parse_request = require('../').parse_request
 
 -- create a helper server
@@ -42,6 +43,7 @@ require('http').createServer('127.0.0.1', 44444, function (req, res)
   elseif req.url == '/echo' then
     res:writeHead(200, {})
     parse_request(req, function (err, data)
+      p('INC', data)
       res:finish(err or data)
     end)
   else
@@ -177,12 +179,14 @@ end)
 end
 
 exports['HTTP echoes back'] = function (test)
-get({
+post({
   url = 'http://127.0.0.1:44444/echo',
   proxy = false,
-  data = 'foo',
-}, function (err, data)
-  --p('echo', err, data)
+  headers = {
+    ['Content-Length'] = 3,
+  },
+}, 'foo', function (err, data)
+  p('echo', err, data)
   test.is_nil(err)
   test.equal(data, 'foo')
   test.done()
