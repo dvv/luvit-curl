@@ -5,5 +5,5 @@ return {
   author = "Vladimir Dronnikov <dronnikov@gmail.com>",
   dependencies = {
   },
-  main = "curl.lua",
+  main = "./lib",
 }
