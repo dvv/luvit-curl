@@ -7,6 +7,7 @@ local Error = require('core').Error
 local HTTP = require('http')
 local parse_url = require('url').parse
 local parse_request = require('./body').parse_request
+local Cookie = require('./cookie').Cookie
 
 --
 -- HTTP request
@@ -151,4 +152,5 @@ return {
   Curl = Curl,
   get = get,
   post = post,
+  Cookie = Cookie
 }

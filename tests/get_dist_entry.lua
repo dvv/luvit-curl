@@ -6,7 +6,7 @@ exports['github is accessed ok'] = function (test)
   get({
     url = 'http://nodeload.github.com/luvit/luvit/zipball/0.1.5',
   }, function (err, data)
-    --p('GOT', err, #data)
+    --p('GOT', err, data)
     test.is_nil(err)
     test.is_string(data)
     test.equal(#data, 835435)

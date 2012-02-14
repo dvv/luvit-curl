@@ -15,7 +15,12 @@ local parse_url = function(str)
   }
 end
 
+--
 -- Cookie archive
+--
+-- refer http://www.ietf.org/rfc/rfc2965.txt
+--
+
 local Cookie = require('core').Object:extend()
 
 function Cookie:initialize()
@@ -30,6 +35,25 @@ function Cookie:tostring(domain, path)
   p(self.jar)
 end
 
+--[[
+Host A's name domain-matches host B's if
+  *  their host name strings string-compare equal; or
+  * A is a HDN string and has the form NB, where N is a non-empty
+     name string, B has the form .B', and B' is a HDN string.  (So,
+     x.y.com domain-matches .Y.com but not Y.com.)
+]]--
+local function domain_match(a, b)
+  a = a:lower()
+  b = b:lower()
+  -- exact match
+  if a == b then return true end
+  -- N.B. here, b must start with dot
+  if a:match('^%w[%w_-]*' .. b) or a == b:sub(2) then
+    return true
+  end
+  return false
+end
+
 function Cookie:update(header, url)
 
   -- update old values
@@ -40,10 +64,14 @@ function Cookie:update(header, url)
   -- update values
   if header then
 
-    -- get domain and path
-    local uri = parse_url(url)
-    if uri.domain:sub(1, 1) ~= '.' then
-      uri.domain = '.' .. uri.domain
+    -- get request domain and path
+    local uri = url and parse_url(url)
+    -- effective host name
+    if uri and not uri.domain:find('.', 1, true) then
+      uri.domain = uri.domain .. '.local'
+    end
+    if uri and uri.path:sub(#uri.path) ~= '/' then
+      uri.path = uri.path .. '/'
     end
 
     -- compensate for ambiguous comma in Expires attribute
@@ -74,10 +102,9 @@ function Cookie:update(header, url)
       end
 
       -- temporary cookie data
-      local cookie = {}
-
-      -- update cookie value
-      cookie.value = value
+      local cookie = {
+        value = value
+      }
 
       -- parse key/value attributes
       --p('ATTRS', attrs)
@@ -97,10 +124,15 @@ function Cookie:update(header, url)
             cookie[attr] = delta
           end
         elseif attr == 'domain' then
+          -- explicitly specified domain must start with dot
+          if value:sub(1, 1) ~= '.' then
+            value = '.' .. value
+          end
           cookie[attr] = value
         elseif attr == 'path' then
           cookie[attr] = value
         elseif attr == 'port' then
+          -- TODO: value should be <"> portlist <">
           cookie[attr] = value
         end
         -- consume attribute
@@ -115,40 +147,49 @@ function Cookie:update(header, url)
         -- silently ignore attributes not listed in RFC
         if attr == 'httponly' or attr == 'secure' then
           cookie[attr] = true
+        -- max-age w/o value means remove at the end of session
         elseif attr == 'max-age' then
-          cookie.expires = os.time()
+          cookie.expires = nil
+        -- port w/o value means any port
+        elseif attr == 'port' then
+          -- TODO: ???
         end
+      end
+
+      -- set default values for optional attributes
+      if not cookie.domain then
+        cookie.domain = uri and uri.domain
+      end
+      if not cookie.path then
+        cookie.path = uri and uri.path:match('^(.*/)')
       end
 
       --
       -- N.B. we relax requirement for presense of Version= attribute
-      -- 
+      --
 
       -- check validity of update
       local valid = true
       -- * The value for the Path attribute is not a prefix of the request-URI
-      if cookie.path and uri.path:find(cookie.path, 1, true) ~= 1 then
+      if cookie.path and uri and uri.path:find(cookie.path, 1, true) ~= 1 then
+p('INVBY PATH', cookie.path, uri.path)
         valid = false
       end
       -- * The value for the Domain attribute contains no embedded dots,
       --   and the value is not .local
       if cookie.domain and cookie.domain ~= '.local' then
-        local dot = cookie.domain:find('.')
-        if not dot or dot == 1 or dot == #cookie.domain then
+        local dot = cookie.domain:find('.', 2, true)
+        if not dot or dot == #cookie.domain then
           valid = false
         end
       end
       -- * The effective host name that derives from the request-host does
       --   not domain-match the Domain attribute
-      -- TODO: !
-      if cookie.domain == false then
-        valid = false
-      end
       -- * The request-host is a HDN (not IP address) and has the form HD,
       --   where D is the value of the Domain attribute, and H is a string
       --   that contains one or more dots
-      -- TODO: !
-      if cookie.domain == false then
+      -- N.B. we handle the latter case in domain_match()
+      if cookie.domain and uri and not domain_match(uri.domain, cookie.domain) then
         valid = false
       end
       -- * The Port attribute has a "port-list", and the request-port was
@@ -159,24 +200,27 @@ function Cookie:update(header, url)
       end
 
       -- update the cookie
-      if not valid then p('INVALID', cookie) end
       if valid then
-
-        -- get existing cookie record or create one
-        if not self.jar[name] then
-          self.jar[name] = cookie
-        else
-          for k, v in pairs(self.jar[name]) do if not cookie[k] then cookie[k] = nil end end
-          for k, v in pairs(cookie) do self.jar[name][k] = v end
-        end
 
         -- if expires <= now, remove the cookie
         if cookie.expires and cookie.expires <= os.time() then
-          -- FIXME: shouldn't be simply cookie.value = nil?
-          --cookie = nil
-          --self.jar[name] = nil
           cookie.value = nil
           cookie.expires = nil
+        end
+
+        -- update existing cookie record or create one
+        -- TODO: rework
+        if not self.jar[name] then
+          self.jar[name] = cookie
+        else
+          for k, v in pairs(self.jar[name]) do
+            if not cookie[k] and k ~= 'old_value' then
+              self.jar[name][k] = nil
+            end
+          end
+          for k, v in pairs(cookie) do
+            self.jar[name][k] = v
+          end
         end
 
       end
@@ -189,5 +233,5 @@ end
 
 -- module
 return {
-  Cookie = Cookie,
+  Cookie = Cookie
 }

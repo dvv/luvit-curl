@@ -1,5 +1,5 @@
 
-local parse_body = require('../').parse
+local parse_body = require('../lib/body').parse_body
 
 -- Basic code coverage
 local tests = {
