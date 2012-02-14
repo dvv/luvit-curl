@@ -1,3 +1,4 @@
+local Table = require('table')
 local os = require('os')
 
 -- TODO: replace with real function
@@ -13,26 +14,6 @@ local parse_url = function(str)
     port = url.port,
     path = url.pathname
   }
-end
-
---
--- Cookie archive
---
--- refer http://www.ietf.org/rfc/rfc2965.txt
---
-
-local Cookie = require('core').Object:extend()
-
-function Cookie:initialize()
-  self.jar = {}
-end
-
-function Cookie:get(name)
-  return self.jar[name]
-end
-
-function Cookie:tostring(domain, path)
-  p(self.jar)
 end
 
 --[[
@@ -52,6 +33,60 @@ local function domain_match(a, b)
     return true
   end
   return false
+end
+
+--[[local function path_match(path, cookie_path)
+  return cookie_path:find(path, 1, true) == 1
+end]]--
+local function path_match(a, b)
+  return a:find(b, 1, true) == 1
+end
+
+--
+-- Cookie archive
+--
+-- refer http://www.ietf.org/rfc/rfc2965.txt
+--
+
+local Cookie = require('core').Object:extend()
+
+function Cookie:initialize()
+  self.jar = {}
+end
+
+function Cookie.meta.__tostring()
+  return '<Cookie>'
+end
+
+function Cookie:serialize(url)
+
+  -- get request domain and path
+  local uri = parse_url(url)
+  -- effective host name
+  if not uri.domain:find('.', 1, true) then
+    uri.domain = uri.domain .. '.local'
+  end
+  -- path
+  if uri.path:sub(#uri.path) ~= '/' then
+    uri.path = uri.path .. '/'
+  end
+
+  -- collect relevant cookies
+  -- TODO: more specific paths should go earlier
+  local result = {}
+  for name, cookie in pairs(self.jar) do
+    if domain_match(uri.domain, cookie.domain)
+        and path_match(cookie.path, uri.path)
+        -- filter out expired cookies
+        and (not cookie.expires or cookie.expires < os.time())
+        -- don't send secure cookies via insecure path
+        and (uri.protocol ~= 'https' or not cookie.secure) then
+      result[#result + 1] = name .. '=' .. cookie.value
+    end
+  end
+
+  return Table.concat(result, ';')
+
 end
 
 function Cookie:update(header, url)
@@ -171,8 +206,7 @@ function Cookie:update(header, url)
       -- check validity of update
       local valid = true
       -- * The value for the Path attribute is not a prefix of the request-URI
-      if cookie.path and uri and uri.path:find(cookie.path, 1, true) ~= 1 then
-p('INVBY PATH', cookie.path, uri.path)
+      if cookie.path and uri and not path_match(uri.path, cookie.path) then
         valid = false
       end
       -- * The value for the Domain attribute contains no embedded dots,
@@ -229,6 +263,22 @@ p('INVBY PATH', cookie.path, uri.path)
 
   end
 
+end
+
+-- helper assertions
+function Cookie:is_set(name)
+  local c = self.jar[name]
+  return c and c.value and not c.old_value
+end
+
+function Cookie:is_updated(name)
+  local c = self.jar[name]
+  return c and c.value and c.old_value and c.value ~= c.old_value
+end
+
+function Cookie:is_same(name)
+  local c = self.jar[name]
+  return c and c.value == c.old_value
 end
 
 -- module

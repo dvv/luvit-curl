@@ -47,7 +47,7 @@ local path_tests = {
   [{'foo=1 ; path = /', 'a.b'}] = {foo = {value = '1', domain = 'a.b', path = '/'}},
   [{'foo=2 ; path = /u', 'a.b/u'}] = {foo = {value = '2', domain = 'a.b', path = '/u'}},
   [{'foo=3 ; path = /u/v', 'a.b/u'}] = {},
-  [{'foo=3 ; path = /u', 'a.b/u/v'}] = {foo = {value = '3', domain = 'a.b', path = '/u'}},
+  [{'foo=4 ; path = /u', 'a.b/u/v'}] = {foo = {value = '4', domain = 'a.b', path = '/u'}},
 }
 
 -- session mode: update cookies with single Set-Cookie:
@@ -121,5 +121,51 @@ end
 
 exports['cookie updated 1'] = update_factory(simple_update_tests)
 exports['cookie updated 2'] = update_factory(multi_update_tests)
+
+exports['cookie stringifies well'] = function (test)
+  local cookie = Cookie:new()
+  cookie:update('foo=1,bar=2', 'a.b.c/d')
+  test.equal(cookie:serialize('a.b.c/d'), 'foo=1;bar=2')
+  cookie:update('foo=3,bar=2', 'a.b.c/d/e')
+  test.equal(cookie:serialize('a.b.c/d/e'), 'foo=3;bar=2')
+  test.equal(cookie:serialize('a.b.c/d'), 'foo=3;bar=2')
+  -- nothing, since domain is a.b.c
+  test.equal(cookie:serialize('b.c/d'), '')
+  test.equal(cookie:serialize('q.a.b.c/d'), '')
+  ---
+  local cookie = Cookie:new()
+  cookie:update('foo=1;domain=b.c,bar=2', 'a.b.c/d')
+  test.equal(cookie:serialize('b.c/d'), 'foo=1')
+  test.equal(cookie:serialize('a.b.c/d'), 'foo=1;bar=2')
+  test.equal(cookie:serialize('q.a.b.c/d'), '')
+  test.done()
+end
+
+exports['login example?'] = function (test)
+  local cookie = Cookie:new()
+  cookie:update('foo=1', 'a.b.c/d/login')
+  cookie:update('bar=2', 'a.b.c/d')
+  test.equal(cookie:serialize('a.b.c/d'), 'foo=1;bar=2')
+  test.equal(cookie:serialize('a.b.c/d/login'), 'foo=1')
+  test.equal(cookie:serialize('a.b.c/e'), '')
+  test.done()
+end
+
+exports['assertions ok'] = function (test)
+  local cookie = Cookie:new()
+  cookie:update('foo=1', 'a.b.c/d/')
+  test.ok(cookie:is_set('foo'))
+  test.not_ok(cookie:is_updated('foo'))
+  test.not_ok(cookie:is_same('foo'))
+  cookie:update('foo=2', 'a.b.c/d/')
+  test.not_ok(cookie:is_set('foo'))
+  test.ok(cookie:is_updated('foo'))
+  test.not_ok(cookie:is_same('foo'))
+  cookie:update('foo=2', 'a.b.c/d/')
+  test.not_ok(cookie:is_set('foo'))
+  test.not_ok(cookie:is_updated('foo'))
+  test.ok(cookie:is_same('foo'))
+  test.done()
+end
 
 return exports
