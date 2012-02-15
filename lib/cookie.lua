@@ -65,6 +65,9 @@ function Cookie:serialize(url)
   -- get request domain and path
   local uri = parse_url(url)
 
+  -- purge expired cookies
+  self:flush()
+
   -- collect relevant cookies
   -- N.B. servers SHOULD NOT rely upon the serialization order:
   -- http://tools.ietf.org/html/rfc6265#section-4.2.2
@@ -111,6 +114,19 @@ function Cookie:get(name, domain, path)
         and (not domain or c.domain == domain)
         and (not path or c.path == path) then
       return c
+    end
+  end
+
+end
+
+function Cookie:flush(non_persistent_as_well)
+
+  -- drop expired and non-persistent cookies
+  local now = os.time()
+  for i, c in ipairs(self.jar) do
+    if (not c.expires and non_persistent_as_well) or c.expires <= now then
+      -- TODO: what's the Lua splice?
+      self.jar[i] = nil
     end
   end
 
