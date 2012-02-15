@@ -141,8 +141,6 @@ function Cookie:update(header, url)
       attrs = attrs:gsub('%s*([%a_][%w_-]*)%s*=%s*(.-)%s*;', function (attr, value)
         --p('ATTR', attr, value)
         attr = attr:lower()
-        -- honor only the first occurence of the attribute
-        if cookie[attr] then return '' end
         -- http://tools.ietf.org/html/rfc6265#section-5.2.1
         if attr == 'expires' then
           local expires = strptime(value, '%Y-%m-%d %H:%M:%S %z')
@@ -156,7 +154,6 @@ function Cookie:update(header, url)
             else
               cookie.expires = 0
             end
-            cookie[attr] = cookie.expires
           end
         -- http://tools.ietf.org/html/rfc6265#section-5.2.3
         elseif attr == 'domain' then
@@ -189,6 +186,7 @@ function Cookie:update(header, url)
 
       -- set default values for optional attributes
       if not cookie.domain then
+        --cookie.host_only = true
         cookie.domain = uri and uri.domain
       end
       -- http://tools.ietf.org/html/rfc6265#section-5.1.4
@@ -199,35 +197,25 @@ function Cookie:update(header, url)
         end
       end
 
-      --
-      -- N.B. we relax requirement for presense of Version= attribute
-      --
-
-      -- check validity of update
+      -- check attributes validity
+      -- http://tools.ietf.org/html/rfc6265#section-5.3
       local valid = true
-      -- * The value for the Path attribute is not a prefix of the request-URI
-      if cookie.path and uri and not path_match(uri.path, cookie.path) then
-        valid = false
-      end
-      -- * The value for the Domain attribute contains no embedded dots,
-      --   and the value is not .local
-      if cookie.domain and cookie.domain ~= '.local' then
+      -- The value for the Domain attribute contains no embedded dots,
+      -- and the value is not .local
+      if cookie.domain then
         local dot = cookie.domain:find('.', 2, true)
         if not dot or dot == #cookie.domain then
           valid = false
         end
       end
-      -- * The effective host name that derives from the request-host does
-      --   not domain-match the Domain attribute
-      -- * The request-host is a HDN (not IP address) and has the form HD,
-      --   where D is the value of the Domain attribute, and H is a string
-      --   that contains one or more dots
-      -- N.B. we handle the latter case in domain_match()
+      -- If the canonicalized request-host does not domain-match the
+      -- domain-attribute.
       if cookie.domain and uri and not domain_match(uri.domain, cookie.domain) then
         valid = false
       end
 
       -- update the cookie
+      -- http://tools.ietf.org/html/rfc6265#section-5.3
       if valid then
 
         -- if expires <= now, remove the cookie

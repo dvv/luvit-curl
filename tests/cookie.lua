@@ -8,10 +8,10 @@ local smoke_tests = {
   ['foo='] = {foo = {value = ''}},
   ['foo=0 ; httponly'] = {foo = {value = '0', httponly = true}},
   ['foo=1 ; secure;httponly ; expires=Any, Jan 1 2013 00:00:00 GMT'] = {foo = {value = '1', httponly = true, secure = true, expires = 2000000000}},
-  ['foo=2 ; secure;httponly ; max-AGE   = 100'] = {foo = {value = '2', httponly = true, secure = true, expires = os.time()+100, ['max-age'] = os.time()+100}},
+  ['foo=2 ; secure;httponly ; max-AGE   = 100'] = {foo = {value = '2', httponly = true, secure = true, expires = os.time()+100 }},
   ['foo=3 ;  port   = 100 ; port = 200'] = {foo = {value = '3'}},
   ['foo=4 ;  MaX-age=-qwe'] = {foo = {value = '4'}},
-  ['foo=5 ;  MaX-age=-123'] = {foo = {['max-age'] = 0}},
+  ['foo=5 ;  MaX-age=-123'] = {foo = {}},
   ['foo=6 ;  MaX-age'] = {foo = {value = '6'}},
   -- invalid name
   ['$foo=bar '] = {},
@@ -43,10 +43,10 @@ local domain_tests_2 = {
 local path_tests = {
   [{'foo=1 ; path = /', 'a.b'}] = {foo = {value = '1', domain = 'a.b', path = '/'}},
   [{'foo=2 ; path = /u', 'a.b/u'}] = {foo = {value = '2', domain = 'a.b', path = '/u'}},
-  [{'foo=3 ; path = /u/v', 'a.b/u'}] = {},
+  [{'foo=3 ; path = /u/v', 'a.b/u'}] = {foo = {value = '3', domain = 'a.b', path = '/u/v'}},
   [{'foo=4 ; path = /u', 'a.b/u/v'}] = {foo = {value = '4', domain = 'a.b', path = '/u'}},
-  [{'foo=5 ; path = /uu', 'a.b/u/v'}] = {},
-  [{'foo=6 ; path = /u', 'a.b/uu/v'}] = {},
+  [{'foo=5 ; path = /uu', 'a.b/u/v'}] = {foo = {value = '5', domain = 'a.b', path = '/uu'}},
+  [{'foo=6 ; path = /u', 'a.b/uu/v'}] = {foo = {value = '6', domain = 'a.b', path = '/u'}},
 }
 
 -- session mode: update cookies with single Set-Cookie:
