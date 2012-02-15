@@ -8,39 +8,36 @@ local smoke_tests = {
   ['foo='] = {foo = {value = ''}},
   ['foo=0 ; httponly'] = {foo = {value = '0', httponly = true}},
   ['foo=1 ; secure;httponly ; expires=Any, Jan 1 2013 00:00:00 GMT'] = {foo = {value = '1', httponly = true, secure = true, expires = 2000000000}},
-  ['foo=2 ; secure;httponly ; max-AGE   = 100'] = {foo = {value = '2', httponly = true, secure = true, expires = os.time()+100, ['max-age'] = 100}},
-  ['foo=3 ;  port   = 100 ; port = 200'] = {foo = {value = '3', port = '100'}},
+  ['foo=2 ; secure;httponly ; max-AGE   = 100'] = {foo = {value = '2', httponly = true, secure = true, expires = os.time()+100, ['max-age'] = os.time()+100}},
+  ['foo=3 ;  port   = 100 ; port = 200'] = {foo = {value = '3'}},
   ['foo=4 ;  MaX-age=-qwe'] = {foo = {value = '4'}},
-  ['foo=4 ;  MaX-age=-123'] = {foo = {value = '4'}},
-  ['foo=5 ;  MaX-age'] = {foo = {value = '5'}},
+  ['foo=5 ;  MaX-age=-123'] = {foo = {['max-age'] = 0}},
+  ['foo=6 ;  MaX-age'] = {foo = {value = '6'}},
   -- invalid name
   ['$foo=bar '] = {},
   -- good domain
-  ['foo=6 ;  domain=a.b.c'] = {foo = {value = '6', domain = '.a.b.c'}},
+  ['foo=6 ;  domain=a.b.c'] = {foo = {value = '6', domain = 'a.b.c'}},
   -- bad domain
   ['foo=7 ;  domain=.domain'] = {},
   ['foo=8 ;  domain=domain.'] = {},
-  -- special domain
-  ['foo=9 ;  domain=.local'] = {foo = {value = '9', domain = '.local'}},
-  ['foo=10 ;  domain=local'] = {foo = {value = '10', domain = '.local'}},
 }
 
 -- domain
 local domain_tests_1 = {
   -- bad domain
-  ['foo=1 ;  domain=foo.bar.com'] = {foo = {value = '1', domain = '.foo.bar.com', path = '/'}},
-  ['foo=2 ;  domain=bar.com'] = {foo = {value = '2', domain = '.bar.com', path = '/'}},
-  ['foo=3 ;  domain=.bar.com'] = {foo = {value = '3', domain = '.bar.com', path = '/'}},
+  ['foo=1 ;  domain=foo.bar.com'] = {foo = {value = '1', domain = 'foo.bar.com', path = '/'}},
+  ['foo=2 ;  domain=bar.com'] = {foo = {value = '2', domain = 'bar.com', path = '/'}},
+  ['foo=3 ;  domain=.bar.com'] = {foo = {value = '3', domain = 'bar.com', path = '/'}},
   ['foo=4 ;  domain=.'] = {},
   ['foo=5 ;  domain=com.'] = {},
   ['foo=6 ;  domain=.com.'] = {},
   ['foo=7 ;  domain=.com'] = {},
 }
 local domain_tests_2 = {
-  [{'foo=1 ;  domain=.local', 'example'}] = {foo = {value = '1', domain = '.local', path = '/'}},
+  [{'foo=1 ;  domain=.local', 'example.local'}] = {},
   [{'foo=2 ;  domain=.foo.com', 'y.x.foo.com'}] = {},
-  [{'foo=3 ;  domain=.foo.com', 'x.foo.com/aaa/'}] = {foo = {value = '3', domain = '.foo.com', path = '/aaa/'}},
-  [{'foo=4 ;  domain=ajax.com', 'ajax.com/cc/c/c'}] = {foo = {value = '4', domain = '.ajax.com', path = '/cc/c/'}},
+  [{'foo=3 ;  domain=.foo.com', 'x.foo.com/aaa/'}] = {foo = {value = '3', domain = 'foo.com', path = '/aaa'}},
+  [{'foo=4 ;  domain=ajax.com', 'ajax.com/cc/c/c'}] = {foo = {value = '4', domain = 'ajax.com', path = '/cc/c'}},
 }
 
 local path_tests = {
@@ -48,25 +45,27 @@ local path_tests = {
   [{'foo=2 ; path = /u', 'a.b/u'}] = {foo = {value = '2', domain = 'a.b', path = '/u'}},
   [{'foo=3 ; path = /u/v', 'a.b/u'}] = {},
   [{'foo=4 ; path = /u', 'a.b/u/v'}] = {foo = {value = '4', domain = 'a.b', path = '/u'}},
+  [{'foo=5 ; path = /uu', 'a.b/u/v'}] = {},
+  [{'foo=6 ; path = /u', 'a.b/uu/v'}] = {},
 }
 
 -- session mode: update cookies with single Set-Cookie:
 local simple_update_tests = {
-  {'foo=foo', {foo = {value = 'foo', domain = 'foo.bar.com', path = '/abc/'}}},
-  {'foo=foo', {foo = {value = 'foo', old_value = 'foo', domain = 'foo.bar.com', path = '/abc/'}}},
-  {'foo=', {foo = {value = '', old_value = 'foo', domain = 'foo.bar.com', path = '/abc/'}}},
-  {'bar=bar', {foo = {value = '', old_value = '', domain = 'foo.bar.com', path = '/abc/'}, bar = {value = 'bar', domain = 'foo.bar.com', path = '/abc/'}}},
-  {'foo=newfoo', {foo = {value = 'newfoo', old_value = '', domain = 'foo.bar.com', path = '/abc/'}, bar = {value = 'bar', old_value = 'bar', domain = 'foo.bar.com', path = '/abc/'}}},
-  {'', {foo = {value = 'newfoo', old_value = 'newfoo', domain = 'foo.bar.com', path = '/abc/'}, bar = {value = 'bar', old_value = 'bar', domain = 'foo.bar.com', path = '/abc/'}}},
+  {'foo=foo', {foo = {value = 'foo', domain = 'foo.bar.com', path = '/abc'}}},
+  {'foo=foo', {foo = {value = 'foo', old_value = 'foo', domain = 'foo.bar.com', path = '/abc'}}},
+  {'foo=', {foo = {value = '', old_value = 'foo', domain = 'foo.bar.com', path = '/abc'}}},
+  {'bar=bar', {foo = {value = '', old_value = '', domain = 'foo.bar.com', path = '/abc'}, bar = {value = 'bar', domain = 'foo.bar.com', path = '/abc'}}},
+  {'foo=newfoo', {foo = {value = 'newfoo', old_value = '', domain = 'foo.bar.com', path = '/abc'}, bar = {value = 'bar', old_value = 'bar', domain = 'foo.bar.com', path = '/abc'}}},
+  {'', {foo = {value = 'newfoo', old_value = 'newfoo', domain = 'foo.bar.com', path = '/abc'}, bar = {value = 'bar', old_value = 'bar', domain = 'foo.bar.com', path = '/abc'}}},
 }
 
 -- session mode: update cookies with multiple Set-Cookie:
 local multi_update_tests = {
-  {' foo=foo , bar=bar  ', {foo = {value = 'foo', domain = 'foo.bar.com', path = '/abc/'}, bar = {value = 'bar', domain = 'foo.bar.com', path = '/abc/'}}},
-  {' foo=foo1 , bar=,baz=baz  ', {foo = {value = 'foo1', old_value = 'foo', domain = 'foo.bar.com', path = '/abc/'}, bar = {value = '', old_value = 'bar', domain = 'foo.bar.com', path = '/abc/'}, baz = {value = 'baz', domain = 'foo.bar.com', path = '/abc/'}}},
-  {'   ', {foo = {value = 'foo1', old_value = 'foo1', domain = 'foo.bar.com', path = '/abc/'}, bar = {value = '', old_value = '', domain = 'foo.bar.com', path = '/abc/'}, baz = {value = 'baz', old_value = 'baz', domain = 'foo.bar.com', path = '/abc/'}}},
-  {'foo=;expires=1970  ; ', {foo = {old_value = 'foo1', domain = 'foo.bar.com', path = '/abc/'}, bar = {value = '', old_value = '', domain = 'foo.bar.com', path = '/abc/'}, baz = {value = 'baz', old_value = 'baz', domain = 'foo.bar.com', path = '/abc/'}}},
-  {'bar=;expires=1970  ; ,baz=;expires= 1971 ', {foo = {domain = 'foo.bar.com', path = '/abc/'}, bar = {old_value = '', domain = 'foo.bar.com', path = '/abc/'}, baz = {old_value = 'baz', domain = 'foo.bar.com', path = '/abc/'}}},
+  {' foo=foo , bar=bar  ', {foo = {value = 'foo', domain = 'foo.bar.com', path = '/abc'}, bar = {value = 'bar', domain = 'foo.bar.com', path = '/abc'}}},
+  {' foo=foo1 , bar=,baz=baz  ', {foo = {value = 'foo1', old_value = 'foo', domain = 'foo.bar.com', path = '/abc'}, bar = {value = '', old_value = 'bar', domain = 'foo.bar.com', path = '/abc'}, baz = {value = 'baz', domain = 'foo.bar.com', path = '/abc'}}},
+  {'   ', {foo = {value = 'foo1', old_value = 'foo1', domain = 'foo.bar.com', path = '/abc'}, bar = {value = '', old_value = '', domain = 'foo.bar.com', path = '/abc'}, baz = {value = 'baz', old_value = 'baz', domain = 'foo.bar.com', path = '/abc'}}},
+  {'foo=;expires=1970  ; ', {foo = {old_value = 'foo1', domain = 'foo.bar.com', path = '/abc'}, bar = {value = '', old_value = '', domain = 'foo.bar.com', path = '/abc'}, baz = {value = 'baz', old_value = 'baz', domain = 'foo.bar.com', path = '/abc'}}},
+  {'bar=;expires=1970  ; ,baz=;expires= 1971 ', {foo = {domain = 'foo.bar.com', path = '/abc'}, bar = {old_value = '', domain = 'foo.bar.com', path = '/abc'}, baz = {old_value = 'baz', domain = 'foo.bar.com', path = '/abc'}}},
 }
 
 exports = { }
@@ -111,7 +110,7 @@ local function update_factory(tests)
   return function (test)
     local cookie = Cookie:new()
     for _, case in ipairs(tests) do
-      cookie:update(case[1], 'http://foo.bar.com:8080/abc/')
+      cookie:update(case[1], 'http://foo.bar.com/abc/')
       test.equal(cookie.jar, case[2])
     end
     --p('STATE', cookie.jar)
@@ -129,15 +128,16 @@ exports['cookie stringifies well'] = function (test)
   cookie:update('foo=3,bar=2', 'a.b.c/d/e')
   test.equal(cookie:serialize('a.b.c/d/e'), 'foo=3; bar=2')
   test.equal(cookie:serialize('a.b.c/d'), 'foo=3; bar=2')
-  -- nothing, since domain is a.b.c
   test.equal(cookie:serialize('b.c/d'), '')
+  test.equal(cookie:serialize('q.a.b.c/d'), 'foo=3; bar=2')
+  cookie:update('foo=4,bar=4', 'a.b.c/d/e/')
   test.equal(cookie:serialize('q.a.b.c/d'), '')
   ---
   local cookie = Cookie:new()
   cookie:update('foo=1;domain=b.c,bar=2', 'a.b.c/d')
   test.equal(cookie:serialize('b.c/d'), 'foo=1')
   test.equal(cookie:serialize('a.b.c/d'), 'foo=1; bar=2')
-  test.equal(cookie:serialize('q.a.b.c/d'), '')
+  test.equal(cookie:serialize('q.a.b.c/d'), 'bar=2')
   test.done()
 end
 
@@ -171,15 +171,15 @@ end
 exports['domain ok'] = function (test)
   local cookie = Cookie:new()
   cookie:update('foo=1;domain=b.c', 'a.b.c/')
-  test.equal(cookie.jar, {foo = {value = '1', domain = '.b.c', path = '/'}})
+  test.equal(cookie.jar, {foo = {value = '1', domain = 'b.c', path = '/'}})
   cookie:update('foo=1;domain=a.b.c', 'a.b.c/')
-  test.equal(cookie.jar, {foo = {value = '1', old_value = '1', domain = '.a.b.c', path = '/'}})
+  test.equal(cookie.jar, {foo = {value = '1', old_value = '1', domain = 'a.b.c', path = '/'}})
   -- noop
   cookie:update('foo=1;domain=e.b.c', 'a.b.c/')
-  test.equal(cookie.jar, {foo = {value = '1', old_value = '1', domain = '.a.b.c', path = '/'}})
+  test.equal(cookie.jar, {foo = {value = '1', old_value = '1', domain = 'a.b.c', path = '/'}})
   -- noop
   cookie:update('foo=1;domain=e.f.b.c', 'a.b.c/')
-  test.equal(cookie.jar, {foo = {value = '1', old_value = '1', domain = '.a.b.c', path = '/'}})
+  test.equal(cookie.jar, {foo = {value = '1', old_value = '1', domain = 'a.b.c', path = '/'}})
   ---
   local cookie = Cookie:new()
   cookie:update('foo=1;domain=e.b.c', 'a.b.c/')
