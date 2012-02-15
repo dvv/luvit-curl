@@ -86,7 +86,6 @@ end
 
 function Cookie:set(cookie)
 
-p('SET', cookie)
   -- if cookie with same name, domain and path exists,
   -- replace it
   for i, c in ipairs(self.jar) do
@@ -95,7 +94,6 @@ p('SET', cookie)
         and c.path == cookie.path then
       cookie.old_value = self.jar[i].old_value
       self.jar[i] = cookie
-      p('UPDATED', cookie, c)
       return
     end
   end
@@ -130,10 +128,6 @@ function Cookie:update(header, url)
 
     -- get request domain and path
     local uri = url and parse_url(url)
-    -- effective host name
-    if uri and not uri.domain:find('.', 1, true) then
-      uri.domain = uri.domain .. '.local'
-    end
     if uri and uri.path == '' then
       uri.path = '/'
     end
@@ -141,13 +135,13 @@ function Cookie:update(header, url)
     -- compensate for ambiguous comma in Expires attribute
     -- N.B. without this commas in Expires can clash with
     -- commas delimiting chunks of composite header
-    p('HEAD?', header)
-    header = (header..','):gsub('[Ee]xpires=.-,%s*(.-[;,])', 'expires=%1')
-    p('HEAD!', header)
+    --p('HEAD?', header)
+    header = (header..','):gsub('[Ee]xpires%s*=%s*%w-,%s*(.-[;,])', 'expires=%1')
+    --p('HEAD!', header)
 
     -- for each comma separated chunk in header...
     for chunk in header:gmatch('%s*(.-)%s*,') do
-      p('CHUNK', chunk)
+      --p('CHUNK', chunk)
 
       -- extract cookie name, value and optional trailer
       -- containing various attributes
@@ -230,7 +224,6 @@ function Cookie:update(header, url)
       local valid = true
 
       if not cookie.name then
-p('INVALID: NONAME', cookie)
         valid = false
       end
 
@@ -239,7 +232,6 @@ p('INVALID: NONAME', cookie)
       if cookie.domain then
         local dot = cookie.domain:find('.', 2, true)
         if not dot or dot == #cookie.domain then
-p('INVALID: DOTS', cookie)
           valid = false
         end
       end
@@ -247,7 +239,6 @@ p('INVALID: DOTS', cookie)
       -- If the canonicalized request-host does not domain-match the
       -- domain-attribute.
       if cookie.domain and uri and not domain_match(uri.domain, cookie.domain) then
-p('INVALID: DOMAIN', cookie)
         valid = false
       end
 

@@ -77,10 +77,10 @@ local multi_update_domain_tests = {
     {name = 'bar', value = '', old_value = 'bar', domain = 'foo.bar.com', path = '/abc'},
     {name = 'baz', value = 'baz2', domain = 'bar.com', path = '/abc'},
   }},
-  {'foo=;expires=1970  ; , baz=baz2', {
+  {'foo=;expires=1970  , baz=baz2', {
     {name = 'foo', old_value = 'foo1', domain = 'foo.bar.com', path = '/abc'},
     {name = 'bar', value = '', old_value = '', domain = 'foo.bar.com', path = '/abc'},
-    {name = 'baz', value = 'baz2', domain = 'bar.com', path = '/abc'},
+    {name = 'baz', value = 'baz2', old_value = 'baz2', domain = 'bar.com', path = '/abc'},
     {name = 'baz', value = 'baz2', domain = 'foo.bar.com', path = '/abc'},
   }},
 }
@@ -90,7 +90,7 @@ local function update_factory(tests)
     local cookie = Cookie:new()
     for _, case in ipairs(tests) do
       cookie:update(case[1], 'http://foo.bar.com/abc/')
-      p('COOK', cookie.jar)
+      --p('COOK', cookie.jar)
       test.equal(cookie.jar, case[2])
     end
     test.done()
@@ -99,7 +99,6 @@ end
 
 exports = { }
 
---[[
 exports['cookie parsed'] = function (test)
   for header, expected in pairs(smoke_tests) do
     local cookie = Cookie:new()
@@ -135,12 +134,11 @@ exports['path honored'] = function (test)
   end
   test.done()
 end
-]]--
---exports['cookie updated 1'] = update_factory(simple_update_tests)
---exports['cookie updated 2'] = update_factory(multi_update_tests)
+
+exports['cookie updated 1'] = update_factory(simple_update_tests)
+exports['cookie updated 2'] = update_factory(multi_update_tests)
 exports['cookie updated 3'] = update_factory(multi_update_domain_tests)
 
---[[
 exports['cookie stringifies well'] = function (test)
   local cookie = Cookie:new()
   cookie:update('foo=1,bar=2', 'a.b.c/d')
@@ -216,6 +214,6 @@ exports['domain ok'] = function (test)
   cookie:update('foo=1;domain=e.f.b.c', 'a.b.c/')
   test.equal(cookie.jar, {})
   test.done()
-end]]--
+end
 
 return exports
