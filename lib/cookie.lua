@@ -35,9 +35,7 @@ local function domain_match(a, b)
   return false
 end
 
---[[local function path_match(path, cookie_path)
-  return cookie_path:find(path, 1, true) == 1
-end]]--
+-- is b literal prefix of a?
 local function path_match(a, b)
   return a:find(b, 1, true) == 1
 end
@@ -46,6 +44,7 @@ end
 -- Cookie archive
 --
 -- refer http://www.ietf.org/rfc/rfc2965.txt
+-- http://tools.ietf.org/html/rfc6265
 --
 
 local Cookie = require('core').Object:extend()
@@ -76,7 +75,7 @@ function Cookie:serialize(url)
   local result = {}
   for name, cookie in pairs(self.jar) do
     if domain_match(uri.domain, cookie.domain)
-        and path_match(cookie.path, uri.path)
+        and path_match(uri.path, cookie.path)
         -- filter out expired cookies
         and (not cookie.expires or cookie.expires < os.time())
         -- don't send secure cookies via insecure path
@@ -85,7 +84,7 @@ function Cookie:serialize(url)
     end
   end
 
-  return Table.concat(result, ';')
+  return Table.concat(result, '; ')
 
 end
 
@@ -105,8 +104,8 @@ function Cookie:update(header, url)
     if uri and not uri.domain:find('.', 1, true) then
       uri.domain = uri.domain .. '.local'
     end
-    if uri and uri.path:sub(#uri.path) ~= '/' then
-      uri.path = uri.path .. '/'
+    if uri and uri.path == '' then
+      uri.path = '/'
     end
 
     -- compensate for ambiguous comma in Expires attribute

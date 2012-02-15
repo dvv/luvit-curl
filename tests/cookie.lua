@@ -40,7 +40,7 @@ local domain_tests_2 = {
   [{'foo=1 ;  domain=.local', 'example'}] = {foo = {value = '1', domain = '.local', path = '/'}},
   [{'foo=2 ;  domain=.foo.com', 'y.x.foo.com'}] = {},
   [{'foo=3 ;  domain=.foo.com', 'x.foo.com/aaa/'}] = {foo = {value = '3', domain = '.foo.com', path = '/aaa/'}},
-  [{'foo=4 ;  domain=ajax.com', 'ajax.com/cc/c/c'}] = {foo = {value = '4', domain = '.ajax.com', path = '/cc/c/c/'}},
+  [{'foo=4 ;  domain=ajax.com', 'ajax.com/cc/c/c'}] = {foo = {value = '4', domain = '.ajax.com', path = '/cc/c/'}},
 }
 
 local path_tests = {
@@ -111,7 +111,7 @@ local function update_factory(tests)
   return function (test)
     local cookie = Cookie:new()
     for _, case in ipairs(tests) do
-      cookie:update(case[1], 'http://foo.bar.com:8080/abc')
+      cookie:update(case[1], 'http://foo.bar.com:8080/abc/')
       test.equal(cookie.jar, case[2])
     end
     --p('STATE', cookie.jar)
@@ -125,10 +125,10 @@ exports['cookie updated 2'] = update_factory(multi_update_tests)
 exports['cookie stringifies well'] = function (test)
   local cookie = Cookie:new()
   cookie:update('foo=1,bar=2', 'a.b.c/d')
-  test.equal(cookie:serialize('a.b.c/d'), 'foo=1;bar=2')
+  test.equal(cookie:serialize('a.b.c/d'), 'foo=1; bar=2')
   cookie:update('foo=3,bar=2', 'a.b.c/d/e')
-  test.equal(cookie:serialize('a.b.c/d/e'), 'foo=3;bar=2')
-  test.equal(cookie:serialize('a.b.c/d'), 'foo=3;bar=2')
+  test.equal(cookie:serialize('a.b.c/d/e'), 'foo=3; bar=2')
+  test.equal(cookie:serialize('a.b.c/d'), 'foo=3; bar=2')
   -- nothing, since domain is a.b.c
   test.equal(cookie:serialize('b.c/d'), '')
   test.equal(cookie:serialize('q.a.b.c/d'), '')
@@ -136,7 +136,7 @@ exports['cookie stringifies well'] = function (test)
   local cookie = Cookie:new()
   cookie:update('foo=1;domain=b.c,bar=2', 'a.b.c/d')
   test.equal(cookie:serialize('b.c/d'), 'foo=1')
-  test.equal(cookie:serialize('a.b.c/d'), 'foo=1;bar=2')
+  test.equal(cookie:serialize('a.b.c/d'), 'foo=1; bar=2')
   test.equal(cookie:serialize('q.a.b.c/d'), '')
   test.done()
 end
@@ -145,9 +145,9 @@ exports['login example?'] = function (test)
   local cookie = Cookie:new()
   cookie:update('foo=1', 'a.b.c/d/login')
   cookie:update('bar=2', 'a.b.c/d')
-  test.equal(cookie:serialize('a.b.c/d'), 'foo=1;bar=2')
-  test.equal(cookie:serialize('a.b.c/d/login'), 'foo=1')
-  test.equal(cookie:serialize('a.b.c/e'), '')
+  test.equal(cookie:serialize('a.b.c/d'), 'foo=1; bar=2')
+  test.equal(cookie:serialize('a.b.c/d/login'), 'foo=1; bar=2')
+  test.equal(cookie:serialize('a.b.c/e'), 'bar=2')
   test.done()
 end
 
@@ -165,6 +165,27 @@ exports['assertions ok'] = function (test)
   test.not_ok(cookie:is_set('foo'))
   test.not_ok(cookie:is_updated('foo'))
   test.ok(cookie:is_same('foo'))
+  test.done()
+end
+
+exports['domain ok'] = function (test)
+  local cookie = Cookie:new()
+  cookie:update('foo=1;domain=b.c', 'a.b.c/')
+  test.equal(cookie.jar, {foo = {value = '1', domain = '.b.c', path = '/'}})
+  cookie:update('foo=1;domain=a.b.c', 'a.b.c/')
+  test.equal(cookie.jar, {foo = {value = '1', old_value = '1', domain = '.a.b.c', path = '/'}})
+  -- noop
+  cookie:update('foo=1;domain=e.b.c', 'a.b.c/')
+  test.equal(cookie.jar, {foo = {value = '1', old_value = '1', domain = '.a.b.c', path = '/'}})
+  -- noop
+  cookie:update('foo=1;domain=e.f.b.c', 'a.b.c/')
+  test.equal(cookie.jar, {foo = {value = '1', old_value = '1', domain = '.a.b.c', path = '/'}})
+  ---
+  local cookie = Cookie:new()
+  cookie:update('foo=1;domain=e.b.c', 'a.b.c/')
+  test.equal(cookie.jar, {})
+  cookie:update('foo=1;domain=e.f.b.c', 'a.b.c/')
+  test.equal(cookie.jar, {})
   test.done()
 end
 
