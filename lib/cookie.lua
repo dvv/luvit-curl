@@ -69,14 +69,14 @@ function Cookie:serialize(url)
   -- N.B. servers SHOULD NOT rely upon the serialization order:
   -- http://tools.ietf.org/html/rfc6265#section-4.2.2
   local result = {}
-  for name, cookie in pairs(self.jar) do
+  for _, cookie in ipairs(self.jar) do
     if domain_match(uri.domain, cookie.domain)
         and path_match(uri.path, cookie.path)
         -- filter out expired cookies
         and (not cookie.expires or cookie.expires < os.time())
         -- don't send secure cookies via insecure path
         and (uri.protocol ~= 'https' or not cookie.secure) then
-      result[#result + 1] = name .. '=' .. cookie.value
+      result[#result + 1] = cookie.name .. '=' .. cookie.value
     end
   end
 
@@ -84,11 +84,45 @@ function Cookie:serialize(url)
 
 end
 
+function Cookie:set(cookie)
+
+p('SET', cookie)
+  -- if cookie with same name, domain and path exists,
+  -- replace it
+  for i, c in ipairs(self.jar) do
+    if c.name == cookie.name
+        and c.domain == cookie.domain
+        and c.path == cookie.path then
+      cookie.old_value = self.jar[i].old_value
+      self.jar[i] = cookie
+      p('UPDATED', cookie, c)
+      return
+    end
+  end
+
+  -- insert new cookie
+  self.jar[#self.jar + 1] = cookie
+
+end
+
+function Cookie:get(name, domain, path)
+
+  -- find the cookie
+  for i, c in ipairs(self.jar) do
+    if c.name == name
+        and (not domain or c.domain == domain)
+        and (not path or c.path == path) then
+      return c
+    end
+  end
+
+end
+
 function Cookie:update(header, url)
 
   -- update old values
-  for k, v in pairs(self.jar) do
-    v.old_value = v.value
+  for _, c in ipairs(self.jar) do
+    c.old_value = c.value
   end
 
   -- update values
@@ -107,81 +141,75 @@ function Cookie:update(header, url)
     -- compensate for ambiguous comma in Expires attribute
     -- N.B. without this commas in Expires can clash with
     -- commas delimiting chunks of composite header
-    header = (header..','):gsub('[Ee]xpires=.-, (.-[;,])', 'expires=%1')
-    --p('HEAD', header)
+    p('HEAD?', header)
+    header = (header..','):gsub('[Ee]xpires=.-,%s*(.-[;,])', 'expires=%1')
+    p('HEAD!', header)
 
     -- for each comma separated chunk in header...
     for chunk in header:gmatch('%s*(.-)%s*,') do
-      --p('CHUNK', chunk)
+      p('CHUNK', chunk)
 
       -- extract cookie name, value and optional trailer
       -- containing various attributes
       local name, value, attrs = (chunk..';'):match('%s*(.-)=(.-)%s*;(.*)')
       --p('COOKIE', name, value, attrs)
 
-      -- couldn't extract cookie name?
-      if not name then
-        -- header chunk has bad format -- ignore it
-        -- FIXME: error()?
-        break
-      end
-
-      -- cookie name starting with $ are reserved
-      if name:sub(1, 1) == '$' then
-        break
-      end
-
       -- temporary cookie data
       local cookie = {
+        name = name,
         value = value
       }
 
-      -- parse key/value attributes
+      -- parse key/value attributes, if any
       --p('ATTRS', attrs)
-      attrs = attrs:gsub('%s*([%a_][%w_-]*)%s*=%s*(.-)%s*;', function (attr, value)
-        --p('ATTR', attr, value)
-        attr = attr:lower()
-        -- http://tools.ietf.org/html/rfc6265#section-5.2.1
-        if attr == 'expires' then
-          local expires = strptime(value, '%Y-%m-%d %H:%M:%S %z')
-          cookie[attr] = expires
-        -- http://tools.ietf.org/html/rfc6265#section-5.2.2
-        elseif attr == 'max-age' then
-          local delta = tonumber(value)
-          if delta then
-            if delta > 0 then
-              cookie.expires = os.time() + delta
-            else
-              cookie.expires = 0
-            end
-          end
-        -- http://tools.ietf.org/html/rfc6265#section-5.2.3
-        elseif attr == 'domain' then
-          if value ~= '' then
-            -- drop leading dot
-            if value:sub(1, 1) == '.' then
-              value = value:sub(2)
-            end
-            cookie[attr] = value:lower()
-          end
-        -- http://tools.ietf.org/html/rfc6265#section-5.2.4
-        elseif attr == 'path' then
-          cookie[attr] = value
-        end
-        -- consume attribute
-        return ''
-      end)
+      if attrs then
 
-      -- parse flag attributes
-      --p('ATTR1', attrs)
-      for attr in attrs:gmatch('%s*([%w_-]-)%s*;') do
-        --p('ATTR', attr)
-        attr = attr:lower()
-        -- http://tools.ietf.org/html/rfc6265#section-5.2.5
-        -- http://tools.ietf.org/html/rfc6265#section-5.2.6
-        if attr == 'httponly' or attr == 'secure' then
-          cookie[attr] = true
+        attrs = attrs:gsub('%s*([%a_][%w_-]*)%s*=%s*(.-)%s*;', function (attr, value)
+          --p('ATTR', attr, value)
+          attr = attr:lower()
+          -- http://tools.ietf.org/html/rfc6265#section-5.2.1
+          if attr == 'expires' then
+            local expires = strptime(value, '%Y-%m-%d %H:%M:%S %z')
+            cookie[attr] = expires
+          -- http://tools.ietf.org/html/rfc6265#section-5.2.2
+          elseif attr == 'max-age' then
+            local delta = tonumber(value)
+            if delta then
+              if delta > 0 then
+                cookie.expires = os.time() + delta
+              else
+                cookie.expires = 0
+              end
+            end
+          -- http://tools.ietf.org/html/rfc6265#section-5.2.3
+          elseif attr == 'domain' then
+            if value ~= '' then
+              -- drop leading dot
+              if value:sub(1, 1) == '.' then
+                value = value:sub(2)
+              end
+              cookie[attr] = value:lower()
+            end
+          -- http://tools.ietf.org/html/rfc6265#section-5.2.4
+          elseif attr == 'path' then
+            cookie[attr] = value
+          end
+          -- consume attribute
+          return ''
+        end)
+
+        -- parse flag attributes
+        --p('ATTR1', attrs)
+        for attr in attrs:gmatch('%s*([%w_-]-)%s*;') do
+          --p('ATTR', attr)
+          attr = attr:lower()
+          -- http://tools.ietf.org/html/rfc6265#section-5.2.5
+          -- http://tools.ietf.org/html/rfc6265#section-5.2.6
+          if attr == 'httponly' or attr == 'secure' then
+            cookie[attr] = true
+          end
         end
+
       end
 
       -- set default values for optional attributes
@@ -200,17 +228,26 @@ function Cookie:update(header, url)
       -- check attributes validity
       -- http://tools.ietf.org/html/rfc6265#section-5.3
       local valid = true
+
+      if not cookie.name then
+p('INVALID: NONAME', cookie)
+        valid = false
+      end
+
       -- The value for the Domain attribute contains no embedded dots,
       -- and the value is not .local
       if cookie.domain then
         local dot = cookie.domain:find('.', 2, true)
         if not dot or dot == #cookie.domain then
+p('INVALID: DOTS', cookie)
           valid = false
         end
       end
+
       -- If the canonicalized request-host does not domain-match the
       -- domain-attribute.
       if cookie.domain and uri and not domain_match(uri.domain, cookie.domain) then
+p('INVALID: DOMAIN', cookie)
         valid = false
       end
 
@@ -225,19 +262,7 @@ function Cookie:update(header, url)
         end
 
         -- update existing cookie record or create one
-        -- TODO: rework
-        if not self.jar[name] then
-          self.jar[name] = cookie
-        else
-          for k, v in pairs(self.jar[name]) do
-            if not cookie[k] and k ~= 'old_value' then
-              self.jar[name][k] = nil
-            end
-          end
-          for k, v in pairs(cookie) do
-            self.jar[name][k] = v
-          end
-        end
+        self:set(cookie)
 
       end
 
@@ -248,18 +273,18 @@ function Cookie:update(header, url)
 end
 
 -- helper assertions
-function Cookie:is_set(name)
-  local c = self.jar[name]
+function Cookie:is_set(name, domain, path)
+  local c = self:get(name, domain, path)
   return c and c.value and not c.old_value
 end
 
-function Cookie:is_updated(name)
-  local c = self.jar[name]
+function Cookie:is_updated(name, domain, path)
+  local c = self:get(name, domain, path)
   return c and c.value and c.old_value and c.value ~= c.old_value
 end
 
-function Cookie:is_same(name)
-  local c = self.jar[name]
+function Cookie:is_same(name, domain, path)
+  local c = self:get(name, domain, path)
   return c and c.value == c.old_value
 end
 
