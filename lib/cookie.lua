@@ -10,6 +10,7 @@ local parse_url = function(str)
   local url = require('url').parse(str)
   --p('URL', str, url)
   return {
+    secure = url.protocol == 'https',
     domain = url.host,
     path = url.pathname
   }
@@ -60,7 +61,7 @@ function Cookie.meta.__tostring()
   return '<Cookie>'
 end
 
-function Cookie:serialize(url, http_only)
+function Cookie:serialize(url, prune_httponly)
 
   -- get request domain and path
   local uri = parse_url(url)
@@ -77,9 +78,9 @@ function Cookie:serialize(url, http_only)
         -- filter out expired cookies
         and (not cookie.expires or cookie.expires < os.time())
         -- don't send secure cookies via insecure path
-        and (uri.protocol ~= 'https' or not cookie.secure)
+        and (uri.secure or not cookie.secure)
         -- don't send httponly cookies if `http_only` specified
-        and not (http_only and cookie.httponly) then
+        and not (prune_httponly and cookie.httponly) then
       relevant[#relevant + 1] = {
         path = cookie.path,
         index = i,
@@ -137,6 +138,12 @@ function Cookie:get(name, domain, path)
       return c
     end
   end
+
+end
+
+function Cookie:reset()
+
+  cookie.jar = {}
 
 end
 

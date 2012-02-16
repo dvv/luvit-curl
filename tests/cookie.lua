@@ -225,4 +225,19 @@ exports['domain ok'] = function (test)
   test.done()
 end
 
+exports['security ok'] = function (test)
+  local cookie = Cookie:new()
+  cookie:update('foo=1,bar=2;httponly;,baz=3;secure', 'https://a.b.c/')
+  test.equal(cookie.jar, {
+    {name = 'foo', value = '1', domain = 'a.b.c', path = '/'},
+    {name = 'bar', value = '2', domain = 'a.b.c', path = '/', httponly = true},
+    {name = 'baz', value = '3', domain = 'a.b.c', path = '/', secure = true},
+  })
+  test.equal(cookie:serialize('http://a.b.c/d'), 'foo=1; bar=2')
+  test.equal(cookie:serialize('https://a.b.c/d'), 'foo=1; bar=2; baz=3')
+  test.equal(cookie:serialize('https://a.b.c/d', true), 'foo=1; baz=3')
+  test.equal(cookie:serialize('http://a.b.c/d', true), 'foo=1')
+  test.done()
+end
+
 return exports
