@@ -11,7 +11,7 @@ local parse_url = function(str)
   --p('URL', str, url)
   return {
     secure = url.protocol == 'https',
-    domain = url.host,
+    domain = url.host or '',
     path = url.pathname
   }
 end
@@ -64,7 +64,7 @@ end
 function Cookie:serialize(url, prune_httponly)
 
   -- get request domain and path
-  local uri = parse_url(url)
+  local uri = parse_url(url or '/')
 
   -- purge expired cookies
   self:flush()
