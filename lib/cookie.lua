@@ -60,7 +60,7 @@ function Cookie.meta.__tostring()
   return '<Cookie>'
 end
 
-function Cookie:serialize(url)
+function Cookie:serialize(url, http_only)
 
   -- get request domain and path
   local uri = parse_url(url)
@@ -69,20 +69,41 @@ function Cookie:serialize(url)
   self:flush()
 
   -- collect relevant cookies
-  -- N.B. servers SHOULD NOT rely upon the serialization order:
-  -- http://tools.ietf.org/html/rfc6265#section-4.2.2
-  local result = {}
-  for _, cookie in ipairs(self.jar) do
+  -- http://tools.ietf.org/html/rfc6265#section-5.4
+  local relevant = {}
+  for i, cookie in ipairs(self.jar) do
     if domain_match(uri.domain, cookie.domain)
         and path_match(uri.path, cookie.path)
         -- filter out expired cookies
         and (not cookie.expires or cookie.expires < os.time())
         -- don't send secure cookies via insecure path
-        and (uri.protocol ~= 'https' or not cookie.secure) then
-      result[#result + 1] = cookie.name .. '=' .. cookie.value
+        and (uri.protocol ~= 'https' or not cookie.secure)
+        -- don't send httponly cookies if `http_only` specified
+        and not (http_only and cookie.httponly) then
+      relevant[#relevant + 1] = {
+        path = cookie.path,
+        index = i,
+        name = cookie.name,
+        value = cookie.value
+      }
     end
   end
 
+  -- sort by path, descending, then index, ascending
+  --p('RES', relevant)
+  Table.sort(relevant, function (a, b)
+    if a.path == b.path then return a.index < b.index end
+    return a.path > b.path
+  end)
+  --p('RES', relevant)
+
+  -- map
+  local result = {}
+  for i, cookie in ipairs(relevant) do
+    result[#result + 1] = cookie.name .. '=' .. cookie.value
+  end
+
+  -- glue
   return Table.concat(result, '; ')
 
 end
@@ -124,7 +145,8 @@ function Cookie:flush(non_persistent_as_well)
   -- drop expired and non-persistent cookies
   local now = os.time()
   for i, c in ipairs(self.jar) do
-    if (not c.expires and non_persistent_as_well) or c.expires <= now then
+    if (not c.expires and non_persistent_as_well)
+        or (c.expires and c.expires <= now) then
       -- TODO: what's the Lua splice?
       self.jar[i] = nil
     end
