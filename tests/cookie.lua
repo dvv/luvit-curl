@@ -31,6 +31,7 @@ local domain_tests_1 = {
   ['foo=6 ;  domain=.com.'] = {},
   ['foo=7 ;  domain=.com'] = {},
 }
+
 local domain_tests_2 = {
   [{'foo=1 ;  domain=.local', 'example.local'}] = {},
   [{'foo=2 ;  domain=.foo.com', 'y.x.foo.com'}] = {},

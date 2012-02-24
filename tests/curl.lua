@@ -5,7 +5,7 @@ local post = require('../').post
 local parse_request = require('../lib/body').parse_request
 
 -- create a helper server
-require('http').createServer('127.0.0.1', 44444, function (req, res)
+require('http').createServer(function (req, res)
   if req.url == '/ok' then
     res:finish('OK')
   elseif req.url == '/json' then
@@ -50,7 +50,7 @@ require('http').createServer('127.0.0.1', 44444, function (req, res)
     res:writeHead(404, {})
     res:finish('Not Found')
   end
-end)
+end):listen(44444, '127.0.0.1')
 
 -- FIXME: should have timeout
 exports['test connect should fail gracefully'] = function (test)
