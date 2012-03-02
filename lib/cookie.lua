@@ -2,6 +2,7 @@ local Table = require('table')
 local os = require('os')
 
 -- TODO: implement http://tools.ietf.org/html/rfc6265#section-5.1.1
+-- E.g. https://github.com/goinstant/node-cookie/blob/master/lib/cookie.js
 local strptime = function(str, format)
   return str:find('2013') and 2000000000 or 0
 end
