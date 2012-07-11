@@ -117,7 +117,7 @@ function Curl:request(callback)
 
   -- pipe errors to callback
   req:once('error', function (err)
-    req:close()
+    req:destroy()
     callback(err)
     callback = function () end
   end)
